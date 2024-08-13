@@ -2,20 +2,21 @@
 
 PERSON_ID_NAME_VOICE = [
     {'person_id': 17223924946, 'name': 'Jessica Rust', 'voice_id': 1},
-    {'person_id': 117227880, 'name': 'Steve Carrlec', 'voice_id': 5},
+    {'person_id': 117227880, 'name': 'Steve Carrlec', 'voice_id': 3},
     {'person_id': 5299113, 'name': 'John Bravo', 'voice_id': 4},
     {'person_id': 6024224946, 'name': 'Margo Stewart', 'voice_id': 2},
-    {'person_id': 1886024346, 'name': 'Evie Lester', 'voice_id': 3}
 ]
 
-NUM_GROUPS = 4
+NUM_GROUPS = 1
 
 GROUP_PI_ASSIGMENTS = [
-    {'group_id': 1, 'pi_ids': [1,2]},
-    {'group_id': 2, 'pi_ids': [3,4,5]},
-    {'group_id': 3, 'pi_ids': [6]},
-    {'group_id': 4, 'pi_ids': [7,8,9,10,11]}
+    {'group_id': 1, 'pi_ids': [1,2]}
 ]
+
+#     {'group_id': 2, 'pi_ids': [3,4,5]},
+#     {'group_id': 3, 'pi_ids': [6]},
+#     {'group_id': 4, 'pi_ids': [7,8,9,10,11]}
+# ]
 
 
 

@@ -23,7 +23,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
 
-from community_msgs.msg import (
+from community_interfaces.msg import (
     PiSpeechComplete,
     PersonTextRequest,
     GroupInfo
@@ -42,12 +42,15 @@ class GroupNode(Node):
 
         self.group_id = group_id
         # The max number of people in this group
-        self.num_members = num_members # TODO get this from constants dict
+        for group in constants.GROUP_PI_ASSIGMENTS:
+            if group['group_id'] == group_id:
+                self.num_members = len(group['pi_ids'])
+                break
         # The people in this group (this changes)
         self.group_members = []
         # Any new members added
         self.new_members = []
-        # Any members ÷left
+        # Any members left
         self.left_members = []
         # Variable for if last requested text is complete
         self.last_text_completed = True

@@ -12,18 +12,6 @@ import constants
 # 2024-05-10-16-44-45 : group 3 : Jessica Rust : Hey how are you?
 # 2024-05-10-16-45-17 : group 3 : Self : Fine thanks, how are you?
 
-
-# What is the most basic idea... human-like agents that can converse
-# like what in chemistry?
-# Bridging the experimentalist-computationalist gap?
-# Explaining the difficulties of synthesis to computationalists 
-# And explaining the reasons for computational predictions to experimentalists
-# ...Integrate ChatGPT for control out our workflow and parameter manipulation
-# ...LLM for synthetic viability...
-
-# Think on how this whole thing could be complicated / jazzed up to make it really publishable...
-
-
 class Person():
 
     def __init__(
@@ -238,7 +226,7 @@ class Person():
         self.assistant = self.client.beta.assistants.create(
             name="person_{self.person_id}",
             instructions=intro_instructions,
-            model="gpt-3.5-turbo",  # 3.5 uses fewer tokens. For real use: "gpt-4-1106-preview",
+            model="gpt-4o-mini",
             tools=[
                 #{"type": "function", "function": self.image_analysis_json}
             ]

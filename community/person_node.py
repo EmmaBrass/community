@@ -6,7 +6,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
-from community_msgs.msg import (
+from community_interfaces.msg import (
     PiSpeechRequest,
     PersonTextRequest,
     GroupInfo
@@ -55,11 +55,11 @@ class PersonNode(Node):
         self.pi_id = None # will change
         self.group_members = [] # People in the group EXCLUDING this person
         # Seq list for receiving text requests - one item for each group
-        self.text_seq = [-1]*constants.NUM_GROUPS #TODO check syntactically correct...
+        self.text_seq = [-1]*constants.NUM_GROUPS
         # Seq for receiving group info
         self.group_info_seq = -1
         # Seq list for receiving speech updates - one item for each group
-        self.speech_seq = [-1]*constants.NUM_GROUPS #TODO check syntactically correct...
+        self.speech_seq = [-1]*constants.NUM_GROUPS
         
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(
@@ -167,7 +167,7 @@ class PersonNode(Node):
     def pi_speech_request_callback(self, msg):
         """
         Looks at incoming pi_speech_request data and tells the GPT about it if 
-        this person is in the group (but NOT the speaker)
+        this person is in the group (but NOT the speaker).
         """
         self.logger().info('In pi_speech_request_callback')
         if (msg.person_id != self.person_id) and \

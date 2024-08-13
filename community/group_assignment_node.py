@@ -30,7 +30,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
 
-from community_msgs.msg import (
+from community_interfaces.msg import (
     PiPersonUpdates,
     GroupInfo
 )

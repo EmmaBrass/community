@@ -8,6 +8,8 @@ import busio
 from digitalio import DigitalInOut
 from adafruit_pn532.spi import PN532_SPI
 
+import constants
+
 import rclpy
 from rclpy.node import Node
 
@@ -18,12 +20,10 @@ import cv2, math, time, logging, pickle
 import numpy as np
 import playsound
 
-from community_msgs.msg import (
+from community_interfaces.msg import (
     PiPersonUpdates,
     PiSpeechComplete
 )
-
-
 
 
 class PiNode(Node):
@@ -39,6 +39,9 @@ class PiNode(Node):
         # The ID for the RFID object places on the pi (this changes).
         self.person_id = 0 # 0 means no card there
 
+        # Seq list for receiving speech requests - one item for each group
+        self.speech_seq = [-1]*constants.NUM_GROUPS
+
         # SPI connection:
         self.spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
         self.cs_pin = DigitalInOut(board.D5)
@@ -50,8 +53,8 @@ class PiNode(Node):
         self.pn532.SAM_configuration()
 
         # Initialise publishers
-        self.pi_person_updates_publisher = self.create_publisher(PiPersonUpdates, 'pi_person_updates', 10) #TODO create a custom message type for this?
-        self.pi_speech_complete_publisher = self.create_publisher(PiSpeechComplete, 'pi_speech_complete', 10) #TODO create a custom message type for this?
+        self.pi_person_updates_publisher = self.create_publisher(PiPersonUpdates, 'pi_person_updates', 10)
+        self.pi_speech_complete_publisher = self.create_publisher(PiSpeechComplete, 'pi_speech_complete', 10)
 
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
@@ -74,10 +77,12 @@ class PiNode(Node):
         self.logger().info('In pi_speech_request_callback')
         # Check if the message is for THIS pi.
         # If yes, submit the text to the speakers.
-        if msg.pi_id == self.pi_id:
+        if msg.pi_id == self.pi_id and \
+        (msg.seq > self.speech_seq[msg.group_id]):
             self.text_to_speech(msg.text)
             self.speak()
             self.pi_speech_complete(msg.seq)
+        self.speech_seq[msg.group_id] = msg.seq
 
     def pi_speech_complete(self, seq):
         """
@@ -113,11 +118,11 @@ class PiNode(Node):
         for i in range(5):
             self.pi_person_updates_publisher.publish(pi_id=self.pi_id, person_id=self.person_id)
 
-    def text_to_speech(self, to_speak): # TODO need to use something local probably... ElevenLabs?
+    def text_to_speech(self, to_speak): # TODO need to use something local probably... ElevenLabs? Coqui TTS?
         speech_file_path = "mp3/speech.mp3"
-        response = self.client.audio.speech.create( #TODO we don't have a GPT connection here... how to do tts... something local... ElevenLabs
+        response = self.client.audio.speech.create(
             model="tts-1", #tts-1 =  lowest latency, lower quality, tts-1-hd = higher quality, high latency
-            voice="alloy", # TODO add in all the ElevenLabs voices.
+            voice="alloy",
             input=to_speak
         )
         response.stream_to_file(speech_file_path)
