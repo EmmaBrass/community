@@ -2,27 +2,7 @@
 # A node that looks at pi_person_updates topic
 # Then updates a database that says who is in what list.
 # Then continuously publishes this updated list.
-# TODO what format to publish list in... maybe each person ID and then the ID of what pi they are at
-# Then we have a SAVED list of what pi is in what group and can use this for assigning each person to each group
 
-
-# Proxy group node
-# 
-# Subscribe to pi_person_updates topic
-# Subscribe to pi_speech_complete topic
-# 
-# Publish to person_text_request topic
-
-# The group node will orchestrate requests for the people in a group to speech.
-# Publish the request and then only send through the next request once the previous one is complete.
-# Each text request will have an ID, consisting of the group number and a message ID
-# E.g. 5_12 (group 5, message 12)
-# This should be included in the message sent from the pi to the pi_speech_complete topic to update when that message is spoken
-
-
-# Subscribe to faces_info topic
-# Keep track of what system state we are in
-# Publish state to system_state topic
 
 import rclpy
 from rclpy.node import Node
@@ -100,11 +80,13 @@ class GroupAssignmentNode(Node):
         """
         Every timer_period seconds, submit messages to group_info topic.
         """
+        # Publish for every group
         for group in self.pi_person_assignment:
             for i in range(5):
                 self.group_info_publisher.publish(
                     seq = self.group_info_seq,
                     group_id = group['group_id'], 
+                    num_pis = len(group['members']),
                     person_ids = [member['person_id'] for member in group['members']], 
                     pi_ids = [member['pi_id'] for member in group['members']]
                 )

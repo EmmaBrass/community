@@ -123,9 +123,9 @@ class GroupNode(Node):
             # if people are leaving and coming very quickly then skip the introductions and goodbyes
             # and just ask for straight-forward conversation.
 
-            # Check if any people to say goodbye to: only say 
+            # Check if any people who have left: only say 
             # goodbye if they are not ALSO in the new_members list, otherwise 
-            # they may have been added and removed too quickly for even a hello.
+            # they may have been added and removed too quickly for even a hello/goodbye
             if len(self.left_members) != 0:
                 # Person leaving says goodbye / feeling sleepy
                 person_id = self.left_members.pop(0)
@@ -137,16 +137,19 @@ class GroupNode(Node):
                             group_id = self.group_id,
                             message_type = 1
                         )
-            # Check if any people who have joined to say hello to.
+            # Check if any people who have joined
+            # Check they also didn't just leave (too soon to say hello again)
             elif len(self.new_members) != 0:
+                # Person joining says hello
                 person_id = self.new_members.pop(0)
-                for i in range(10):
-                    self.person_text_request_publisher.publish(
-                        seq = self.text_seq,
-                        person_id = person_id,
-                        group_id = self.group_id,
-                        message_type = 0
-                    )
+                if person_id not in self.left_members:
+                    for i in range(10):
+                        self.person_text_request_publisher.publish(
+                            seq = self.text_seq,
+                            person_id = person_id,
+                            group_id = self.group_id,
+                            message_type = 0
+                        )
             # Otherwise, choose a person at random to request text from
             else:
                 person_id = random.choice(self.group_members)# TODO more sophisticated picking technique

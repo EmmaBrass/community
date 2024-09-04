@@ -40,11 +40,11 @@ class PiNode(Node):
         self.person_id = 0 # 0 means no card there
 
         # Seq list for receiving speech requests - one item for each group
-        self.speech_seq = [-1]*constants.NUM_GROUPS
+        self.speech_seq = None
 
         # SPI connection:
         self.spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-        self.cs_pin = DigitalInOut(board.D5)
+        self.cs_pin = DigitalInOut(board.D22)
         self.pn532 = PN532_SPI(self.spi, self.cs_pin, debug=False)
         ic, ver, rev, support = self.pn532.firmware_version
         print("Found PN532 with firmware version: {0}.{1}".format(ver, rev))
@@ -66,8 +66,24 @@ class PiNode(Node):
             self.pi_speech_request_callback, 
             10
         )
+        self.group_info_subscription = self.create_subscription(
+            String,
+            'group_info', 
+            self.group_info_callback, 
+            10
+        )
         # Prevent unused variable warnings
         self.pi_speech_request_subscription 
+
+    def group_info_callback(self, msg):
+        """
+        Used just after initialisation to set the number of people
+        in this group.
+        """
+        self.logger().info('In group_info_callback')
+        if self.speech_seq == None:
+            # Count the number of members of the group and set the speech_seq
+            self.speech_seq = [-1]*msg.num_pis
 
     def pi_speech_request_callback(self, msg):
         """
@@ -75,14 +91,15 @@ class PiNode(Node):
         When complete, calls function to send 'complete' message.
         """
         self.logger().info('In pi_speech_request_callback')
-        # Check if the message is for THIS pi.
-        # If yes, submit the text to the speakers.
-        if msg.pi_id == self.pi_id and \
-        (msg.seq > self.speech_seq[msg.group_id]):
-            self.text_to_speech(msg.text)
-            self.speak()
-            self.pi_speech_complete(msg.seq)
-        self.speech_seq[msg.group_id] = msg.seq
+        if self.speech_seq != None:
+            # Check if the message is for THIS pi.
+            # If yes, submit the text to the speakers.
+            if msg.pi_id == self.pi_id and \
+            (msg.seq > self.speech_seq[msg.group_id]):
+                self.text_to_speech(msg.text)
+                self.speak()
+                self.pi_speech_complete(msg.seq)
+            self.speech_seq[msg.group_id] = msg.seq
 
     def pi_speech_complete(self, seq):
         """
@@ -94,7 +111,7 @@ class PiNode(Node):
     def timer_callback(self):
         """
         Every x seconds, publish the ID for the RFID object on this pi at the moment.
-        (Or the absense of any RFID number: None).
+        (Or the absense of any RFID number: 0).
         """
         # Check and update assigned RFID object.
         # TODO have a simulation version for this... for testing...

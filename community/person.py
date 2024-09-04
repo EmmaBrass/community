@@ -53,7 +53,8 @@ class Person():
             be placed with 1 to 5 other people.  You will all have a conversation.\
             When you are placed in a group, you will be reminded of all the past interations\
             you have had with the others in this group.  When a user message command is given, you should\
-            only response with NONE, unless the command is <RESPOND>;\
+            only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response\
+            that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>;\
             this is very important.\n\
             You will be given one of these commands:\n\
             <NEW GROUP> You have joined a new group and are given a summary of your past \
@@ -62,8 +63,10 @@ class Person():
             the text for what they say.\n\
             <MEMBER LEFT> You will be given the name of the person who has left the group.\n\
             <MEMBER JOINED> You will be given the name of the person who has joined the group.\n\
-            <RESPOND> It is your turn to speak.  Say something that continues the conversation.\n\
+            <RESPOND-NORMAL> It is your turn to speak.  Say something that continues the conversation.\n\
             This command may include some instructions on what topic you should speak about.\n\
+            <RESPOND-JOINING> Say hello to everyone in your new group.\n\
+            <RESPOND-LEAVING> Say goodbye to everyone in the group you are leaving.\n\
             Before we start, I will give you some information about yourself.  \
             Your name is {self.name} and you are {self.age} years old.  \
             To describe your personality, I will give you a score from 0 (low) \
@@ -79,7 +82,8 @@ class Person():
             already know: {self.relationships}\n\
             These relationships are important.  You should let your pre-existing relationship \
             with a person guide how you interact with them if you are ever in the same group \
-            conversation." #TODO try with and without reminder of past interactions w group members
+            conversation." #TODO try with and without reminder of past interactions w/ group members
+            # TODO make these (apart from <RESPOND> into function calls???
         self.api_key = "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"
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", self.api_key))
         self.create_assistant(intro_instructions)
@@ -89,7 +93,8 @@ class Person():
         self, 
         person_id: int, 
         group_id: int, 
-        people_in_group: list # Members of the group EXCLUDING this person.
+        people_in_group: list, # Members of the group EXCLUDING this person.
+        message_type: int
     ):
         """
         Request text from THIS PERSON.
@@ -98,9 +103,15 @@ class Person():
         :param group_id: The ID for the group this person is in
         :param people_in_group: The other people in the group, 
         EXCLUDING this person.
+        :param message_type: The type of message you want; 0=joining, 1=leaving, 2=normal convo.
         returns text: The text response from the GPT.
         """
-        text = self.add_user_message_and_get_response("<RESPONSE>")
+        if message_type == 0:
+            text = self.add_user_message_and_get_response("<RESPOND-JOINING>")
+        elif message_type == 1:
+            text = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
+        elif message_type == 2:
+            text = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
         # Save the text to the interactions memory dict
         self.update_interactions_dict(person_id, group_id, people_in_group, text)
         return text

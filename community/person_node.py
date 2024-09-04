@@ -102,7 +102,8 @@ class PersonNode(Node):
             text = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
-                self.group_members # Members of the group EXCLUDING this person.
+                self.group_members, # Members of the group EXCLUDING this person.
+                msg.message_type
             )
             self.pi_speech_request_pub(msg.seq, text)
             self.text_seq[msg.group_id] = msg.seq
