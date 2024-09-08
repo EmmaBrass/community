@@ -28,7 +28,8 @@ from community_interfaces.msg import (
     PersonTextRequest,
     GroupInfo
 )
-import constants
+import community.configuration as config
+
 import cv2, math, time, logging, pickle, random
 import numpy as np
 
@@ -38,11 +39,10 @@ class GroupNode(Node):
     def __init__(self, group_id: int):
         super().__init__('group_node')
 
-        self.logger = logging.getLogger("main_logger")
-
-        self.group_id = group_id
+        self.group_id = group_id #TODO get form launch file, not from class initialisation
         # The max number of people in this group
-        for group in constants.GROUP_PI_ASSIGMENTS:
+        # TODO delete? num_members not used currently
+        for group in config.GROUP_PI_ASSIGMENTS:
             if group['group_id'] == group_id:
                 self.num_members = len(group['pi_ids'])
                 break
@@ -85,7 +85,7 @@ class GroupNode(Node):
         """
         Callback function for info on group assignment/members.
         """
-        self.logger().info('In group_info_callback')
+        self.get_logger().info('In group_info_callback')
         if msg.seq > self.group_info_seq:
             if msg.group_id == self.group_id:
                 # Check for people who have left
@@ -106,7 +106,7 @@ class GroupNode(Node):
         """
         Callback for info that the pi has finished speaking a requested text.
         """
-        self.logger().info('In pi_speech_complete_callback')
+        self.get_logger().info('In pi_speech_complete_callback')
         if msg.seq == self.text_seq and msg.group_id == self.group_id:
             if msg.complete == True:
                 self.last_text_completed = True

@@ -20,6 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+        	'group_assignment_node = community.group_assignment_node:main',
+        	'group_node = community.group_node:main',
+            'person_node = community.person_node:main'
         ],
     },
 )

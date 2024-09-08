@@ -6,16 +6,17 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
+
 from community_interfaces.msg import (
     PiSpeechRequest,
     PersonTextRequest,
     GroupInfo
 )
-import constants
+import community.configuration as config
+from community.person import Person
+
 import cv2, math, time, logging, pickle
 import numpy as np
-
-from person import Person
 
 
 class PersonNode(Node):
@@ -31,15 +32,17 @@ class PersonNode(Node):
         agreeableness: int, 
         extraversion: int,
         history: str,
-        interactions: dict
+        relationships: dict
     ):
         super().__init__('person_node')
 
-        self.logger = logging.getLogger("main_logger")
+        # Get person_id from launch file -> long multi digit number of RDIF card
+        self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
 
+        # Get person attricbuted form config file
         self.person = Person(
-            person_id,
-            name, 
+            person_id = self.person_id,
+            name = , 
             age, 
             openness, 
             conscientiousness, 
@@ -47,19 +50,18 @@ class PersonNode(Node):
             agreeableness, 
             extraversion, 
             history, 
-            interactions
+            relationships
         )
 
-        self.person_id = person_id
         self.group_id = None # will change
         self.pi_id = None # will change
         self.group_members = [] # People in the group EXCLUDING this person
         # Seq list for receiving text requests - one item for each group
-        self.text_seq = [-1]*constants.NUM_GROUPS
+        self.text_seq = [-1]*config.NUM_GROUPS
         # Seq for receiving group info
         self.group_info_seq = -1
         # Seq list for receiving speech updates - one item for each group
-        self.speech_seq = [-1]*constants.NUM_GROUPS
+        self.speech_seq = [-1]*config.NUM_GROUPS
         
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(
@@ -95,7 +97,7 @@ class PersonNode(Node):
         """
         Callback function for requesting text from the GPT for this person.
         """
-        self.logger().info('In person_text_request_callback')
+        self.get_logger().info('In person_text_request_callback')
         if msg.person_id == self.person_id \
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id]:
@@ -114,7 +116,7 @@ class PersonNode(Node):
 
         :param text: The text that needs to be spoken.
         """
-        self.logger().info('In pi_speech_request_pub')
+        self.get_logger().info('In pi_speech_request_pub')
         for i in range(5):
             self.pi_speech_request_publisher.publish(
                 seq = seq, 
@@ -130,7 +132,7 @@ class PersonNode(Node):
         """
         Callback function for receving information about group members.
         """
-        self.logger().info('In group_info_callback')
+        self.get_logger().info('In group_info_callback')
 
         if msg.seq > self.group_info_seq:
             if self.person_id in msg.person_ids:
@@ -170,7 +172,7 @@ class PersonNode(Node):
         Looks at incoming pi_speech_request data and tells the GPT about it if 
         this person is in the group (but NOT the speaker).
         """
-        self.logger().info('In pi_speech_request_callback')
+        self.get_logger().info('In pi_speech_request_callback')
         if (msg.person_id != self.person_id) and \
             (self.person_id in msg.people_in_group) and \
             (self.group_id == msg.group_id) and \
@@ -185,7 +187,7 @@ class PersonNode(Node):
 
     def get_voice_id(self, person_id):
         voice_id = None
-        for person in constants.PERSON_ID_NAME_VOICE:
+        for person in config.PERSON_INFO:
             if person['person_id'] == person_id:
                 voice_id = person['voice_id']
                 break

@@ -20,6 +20,9 @@ import cv2, math, time, logging, pickle
 import numpy as np
 import playsound
 
+import wave, os
+from piper.voice import PiperVoice
+
 from community_interfaces.msg import (
     PiPersonUpdates,
     PiSpeechComplete
@@ -30,8 +33,6 @@ class PiNode(Node):
 
     def __init__(self, pi_id):
         super().__init__('pi_node')
-
-        self.logger = logging.getLogger("main_logger")
 
         # The id number for this pi (static) 
         self.pi_id = pi_id
@@ -80,7 +81,7 @@ class PiNode(Node):
         Used just after initialisation to set the number of people
         in this group.
         """
-        self.logger().info('In group_info_callback')
+        self.get_logger().info('In group_info_callback')
         if self.speech_seq == None:
             # Count the number of members of the group and set the speech_seq
             self.speech_seq = [-1]*msg.num_pis
@@ -90,14 +91,13 @@ class PiNode(Node):
         Callback function for a speech request for the pi speakers.
         When complete, calls function to send 'complete' message.
         """
-        self.logger().info('In pi_speech_request_callback')
+        self.get_logger().info('In pi_speech_request_callback')
         if self.speech_seq != None:
             # Check if the message is for THIS pi.
             # If yes, submit the text to the speakers.
             if msg.pi_id == self.pi_id and \
             (msg.seq > self.speech_seq[msg.group_id]):
-                self.text_to_speech(msg.text)
-                self.speak()
+                self.text_to_speech(msg.text, msg.voice_id)
                 self.pi_speech_complete(msg.seq)
             self.speech_seq[msg.group_id] = msg.seq
 
@@ -135,18 +135,15 @@ class PiNode(Node):
         for i in range(5):
             self.pi_person_updates_publisher.publish(pi_id=self.pi_id, person_id=self.person_id)
 
-    def text_to_speech(self, to_speak): # TODO need to use something local probably... ElevenLabs? Coqui TTS?
-        speech_file_path = "mp3/speech.mp3"
-        response = self.client.audio.speech.create(
-            model="tts-1", #tts-1 =  lowest latency, lower quality, tts-1-hd = higher quality, high latency
-            voice="alloy",
-            input=to_speak
-        )
-        response.stream_to_file(speech_file_path)
-
-    def speak(self):
-        playsound("mp3/speech.mp3")
-
+    def text_to_speech(self, to_speak, voice_id):
+        voicedir = os.path.expanduser('~/Documents/piper/') #Where onnx model files are stored on my machine
+        model = voicedir+voice_id
+        voice = PiperVoice.load(model)
+        wav_file = wave.open('output.wav', 'w')
+        text = to_speak
+        audio = voice.synthesize(text,wav_file)
+        # Play the .wav file
+        os.system('aplay output.wav')
 
 
 def main(args=None):

@@ -4,7 +4,7 @@ import json
 import os
 import time
 import datetime
-import constants
+import community.configuration as config
 
 # interactions as a dict... a list of all the text they have exchanged with other people in order, with time stamps?
 # or a list of dicts perhaps.  [{date_time: ''}, {group: ''}, {name: ''}, {text: ''}]
@@ -25,7 +25,7 @@ class Person():
         agreeableness: int, 
         extraversion: int,
         history: str,
-        interactions: dict
+        relationships: dict
     ):
         self.name = name
         self.age = age
@@ -37,9 +37,9 @@ class Person():
             'extraversion': extraversion
         },
         self.history = history, # Where they come from, their job, what they like and dislike.
-        self.relationships = [] # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
+        self.relationships = relationships # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
         # This means new relationships can be formed if a new person was in the group.  Maybe also a .txt file ?
-        self.interactions = [] # create interactions dict
+        self.interactions = {} # create interactions dict
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
 
@@ -220,7 +220,7 @@ class Person():
 
     def get_name_from_person_id(self, person_id: int):
         name = None
-        for person in constants.PERSON_ID_NAME_VOICE:
+        for person in config.PERSON_INFO:
             if person['person_id'] == person_id:
                 name = person['name']
                 break

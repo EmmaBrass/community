@@ -14,25 +14,23 @@ from community_interfaces.msg import (
     PiPersonUpdates,
     GroupInfo
 )
+import community.configuration as config
 
 import cv2, math, time, logging, pickle, random
 import numpy as np
-import constants
 
 
 class GroupAssignmentNode(Node):
 
-    def __init__(self, group_id: int, num_members: int):
+    def __init__(self):
         super().__init__('group_assignment_node')
-
-        self.logger = logging.getLogger("main_logger")
 
         self.group_info_seq = 0
 
         # Initialize the assignments list
         self.pi_person_assignment = []
         # Loop through each group in the original list
-        for group in constants.GROUP_PI_ASSIGNMENTS:
+        for group in config.GROUP_PI_ASSIGNMENTS:
             group_id = group['group_id']
             pi_ids = group['pi_ids']
             # Create the members list for the current group
@@ -74,7 +72,7 @@ class GroupAssignmentNode(Node):
         # Update the pi/person assignments list
         success = self.update_pi_person_assignment(msg.pi_id, msg.person_id)
         if success == False:
-            self.logger.warning("Pi ID not found!")
+            self.get_logger.warning("Pi ID not found!")
 
     def timer_callback(self):
         """
