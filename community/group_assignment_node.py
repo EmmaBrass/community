@@ -27,16 +27,16 @@ class GroupAssignmentNode(Node):
 
         self.group_info_seq = 0
 
-        # Initialize the assignments list
-        self.pi_person_assignment = []
+        # Initialize the assignments list for what person is at what pi
+        # Very similar to GROUP_PI_ASSIGNMENTS but also gives a person_id for each pi_id
+        # This person_id will be updated as the RFID cards are moved around
+        # Initially all pis will be assigned person_id of -1 (no person)
+        self.pi_person_assignments = []
         # Loop through each group in the original list
-        for group in config.GROUP_PI_ASSIGNMENTS:
-            group_id = group['group_id']
-            pi_ids = group['pi_ids']
-            # Create the members list for the current group
-            members = [{'pi_id': pi_id, 'person_id': -1} for pi_id in pi_ids]
-            # Append the new group structure to the result list
-            self.pi_person_assignment.append({'group_id': group_id, 'members': members})
+        for group_id, group_info in config.GROUP_PI_ASSIGNMENTS.items():
+            pi_ids = group_info.get('pi_ids', [])
+            members = [{'pi_id': pi_id, 'person_id': 0} for pi_id in pi_ids]
+            self.pi_person_assignments.append({'group_id': group_id, 'members': members})
 
         # Initialise publisher
         self.group_info_publisher = self.create_publisher(GroupInfo, 'group_info', 10)
@@ -53,9 +53,16 @@ class GroupAssignmentNode(Node):
         # Prevent unused variable warnings
         self.pi_person_updates_subscription
 
-    def update_pi_person_assignment(self, pi_id: int, new_person_id:int):
+    def update_pi_person_assignments(self, pi_id: int, new_person_id:int):
+        """
+        Update the person_id assigned to a specific pi_id in self.pi_person_assignments.
+
+        :param pi_id: The pi_id to update.
+        :param new_person_id: The new person_id to assign.
+        :return: True if the update was successful, False if pi_id was not found.
+        """
         # Loop through each group in the assignments
-        for group in self.pi_person_assignment:
+        for group in self.pi_person_assignments:
             # Loop through each member in the group
             for member in group['members']:
                 # Check if the current member has the specified pi_id
@@ -70,7 +77,7 @@ class GroupAssignmentNode(Node):
         Callback for info on what person is assigned to what pi.
         """
         # Update the pi/person assignments list
-        success = self.update_pi_person_assignment(msg.pi_id, msg.person_id)
+        success = self.update_pi_person_assignments(msg.pi_id, msg.person_id)
         if success == False:
             self.get_logger.warning("Pi ID not found!")
 
@@ -79,15 +86,15 @@ class GroupAssignmentNode(Node):
         Every timer_period seconds, submit messages to group_info topic.
         """
         # Publish for every group
-        for group in self.pi_person_assignment:
+        for group in self.pi_person_assignments:
+            msg = GroupInfo()
+            msg.seq = self.group_info_seq
+            msg.group_id = group['group_id']
+            msg.num_pis = len(group['members'])
+            msg.person_ids = [member['person_id'] for member in group['members']]
+            msg.pi_ids = [member['pi_id'] for member in group['members']]
             for i in range(5):
-                self.group_info_publisher.publish(
-                    seq = self.group_info_seq,
-                    group_id = group['group_id'], 
-                    num_pis = len(group['members']),
-                    person_ids = [member['person_id'] for member in group['members']], 
-                    pi_ids = [member['pi_id'] for member in group['members']]
-                )
+                self.group_info_publisher.publish(msg)
             self.group_info_seq += 1
 
 def main(args=None):

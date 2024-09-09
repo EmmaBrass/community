@@ -8,17 +8,10 @@ import busio
 from digitalio import DigitalInOut
 from adafruit_pn532.spi import PN532_SPI
 
-import constants
-
 import rclpy
 from rclpy.node import Node
 
 from std_msgs.msg import String
-from std_msgs.msg import Int16MultiArray
-
-import cv2, math, time, logging, pickle
-import numpy as np
-import playsound
 
 import wave, os
 from piper.voice import PiperVoice
@@ -31,11 +24,12 @@ from community_interfaces.msg import (
 
 class PiNode(Node):
 
-    def __init__(self, pi_id):
+    def __init__(self):
         super().__init__('pi_node')
 
-        # The id number for this pi (static) 
-        self.pi_id = pi_id
+        # Get pi_id from launch file
+        self.declare_parameter('pi_id', 0)
+        self.pi_id = self.get_parameter('pi_id').get_parameter_value().integer_value
 
         # The ID for the RFID object places on the pi (this changes).
         self.person_id = 0 # 0 means no card there
@@ -48,7 +42,7 @@ class PiNode(Node):
         self.cs_pin = DigitalInOut(board.D22)
         self.pn532 = PN532_SPI(self.spi, self.cs_pin, debug=False)
         ic, ver, rev, support = self.pn532.firmware_version
-        print("Found PN532 with firmware version: {0}.{1}".format(ver, rev))
+        self.get_logger().info("Found PN532 with firmware version: {0}.{1}".format(ver, rev))
 
         # Configure PN532 to communicate with MiFare cards
         self.pn532.SAM_configuration()
@@ -84,7 +78,7 @@ class PiNode(Node):
         self.get_logger().info('In group_info_callback')
         if self.speech_seq == None:
             # Count the number of members of the group and set the speech_seq
-            self.speech_seq = [-1]*msg.num_pis
+            self.speech_seq = [-1]*msg.num_pis # Seq list for receiving speech requests - one item for each group
 
     def pi_speech_request_callback(self, msg):
         """
@@ -105,8 +99,11 @@ class PiNode(Node):
         """
         Publish to say that the text has been spoken.
         """
+        msg = PiSpeechComplete()
+        msg.seq = seq
+        msg.complete = True
         for i in range(10):
-            self.pi_speech_complete_publisher.publish(seq=seq, complete=True)
+            self.pi_speech_complete_publisher.publish(msg)
 
     def timer_callback(self):
         """
@@ -116,24 +113,26 @@ class PiNode(Node):
         # Check and update assigned RFID object.
         # TODO have a simulation version for this... for testing...
         # Publish assigned RFID object number.
-        print("Checking for RFID/NFC card...")
+        self.get_logger().info("Checking for RFID/NFC card...")
         # Check if a card is available to read
         try:
             uid = self.pn532.read_passive_target(timeout=0.5)
         except:
-            print("Card read error - wrong card type used?")
+            self.get_logger().info("Card read error - wrong card type used?")
             self.person_id = 0
-        print(".", end="")
         if uid is None:
-            print("No card found.")
+            self.get_logger().info("No card found.")
             self.person_id = 0
         else:
             uid_str = ''.join([str(i) for i in uid])
             uid_int = int(uid_str)
-            print("Found card with UID: ", uid_int)
+            self.get_logger().info(f"Found card with UID: {uid_int}")
             self.person_id = uid_int
+        msg = PiPersonUpdates()
+        msg.pi_id = self.pi_id
+        msg.person_id = self.person_id
         for i in range(5):
-            self.pi_person_updates_publisher.publish(pi_id=self.pi_id, person_id=self.person_id)
+            self.pi_person_updates_publisher.publish(msg)
 
     def text_to_speech(self, to_speak, voice_id):
         voicedir = os.path.expanduser('~/Documents/piper/') #Where onnx model files are stored on my machine
@@ -143,6 +142,7 @@ class PiNode(Node):
         text = to_speak
         audio = voice.synthesize(text,wav_file)
         # Play the .wav file
+        self.get_logger().info("Playing .wav file")
         os.system('aplay output.wav')
 
 

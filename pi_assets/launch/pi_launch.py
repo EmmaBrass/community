@@ -7,11 +7,11 @@ def generate_launch_description():
     return LaunchDescription([
 
         Node(
-            package='community',
+            package='community_pi',
             executable='pi_node',
-            name='pi_node',
+            name='pi_node_1', # Customise to match pi name (e.g. head1, head2, ...)
             parameters=[
-                {'pi_id': '1'}, # customise for each pi (should match comp name, e.g. head1, head2)
+                {'pi_id': 1}, # Customise to match pi name (e.g. head1, head2, ...)
                 {'log_level': 'INFO'}
             ],
             arguments=['--ros-args', '--log-level', 'INFO']

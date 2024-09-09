@@ -21,36 +21,26 @@ import numpy as np
 
 class PersonNode(Node):
 
-    def __init__(
-        self, 
-        person_id: int,
-        name: str, 
-        age: int, 
-        openness: int, 
-        conscientiousness: int, 
-        neuroticism: int, 
-        agreeableness: int, 
-        extraversion: int,
-        history: str,
-        relationships: dict
-    ):
+    def __init__(self):
+
         super().__init__('person_node')
 
-        # Get person_id from launch file -> long multi digit number of RDIF card
+        # Get person_id from launch file -> long multi-digit number of RFID card
+        self.declare_parameter('person_id', 0)
         self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
 
-        # Get person attricbuted form config file
+        # Make person object using person attributes from config file
         self.person = Person(
             person_id = self.person_id,
-            name = , 
-            age, 
-            openness, 
-            conscientiousness, 
-            neuroticism, 
-            agreeableness, 
-            extraversion, 
-            history, 
-            relationships
+            name = config.PERSON_INFO_DICT.get(self.person_id, {}).get('name', "Person not found."), 
+            age = config.PERSON_INFO_DICT.get(self.person_id, {}).get('age', "Person not found."), 
+            openness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('openness', "Person not found."),  
+            conscientiousness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('conscientiousness', "Person not found."), 
+            neuroticism = config.PERSON_INFO_DICT.get(self.person_id, {}).get('neuroticism', "Person not found."), 
+            agreeableness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('agreeableness', "Person not found."), 
+            extraversion = config.PERSON_INFO_DICT.get(self.person_id, {}).get('extraversion', "Person not found."), 
+            history = config.PERSON_INFO_DICT.get(self.person_id, {}).get('history', "Person not found."), 
+            relationships = config.PERSON_INFO_DICT.get(self.person_id, {}).get('relationships', "Person not found."), 
         )
 
         self.group_id = None # will change
@@ -100,15 +90,16 @@ class PersonNode(Node):
         self.get_logger().info('In person_text_request_callback')
         if msg.person_id == self.person_id \
             and msg.group_id == self.group_id \
-            and msg.seq > self.text_seq[msg.group_id]:
+            and msg.seq > self.text_seq[msg.group_id-1]:
             text = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
                 self.group_members, # Members of the group EXCLUDING this person.
                 msg.message_type
             )
+            self.get_logger().info(f'Text from GPT!: {text}')
             self.pi_speech_request_pub(msg.seq, text)
-            self.text_seq[msg.group_id] = msg.seq
+            self.text_seq[msg.group_id-1] = msg.seq
 
     def pi_speech_request_pub(self, seq, text):
         """
@@ -117,22 +108,22 @@ class PersonNode(Node):
         :param text: The text that needs to be spoken.
         """
         self.get_logger().info('In pi_speech_request_pub')
+        msg = PiSpeechRequest()
+        msg.seq = seq
+        msg.voice_id = self.get_voice_id(self.person_id)
+        msg.person_id = self.person_id
+        msg.pi_id = self.pi_id
+        msg.group_id = self.group_id
+        msg.people_in_group = self.group_members
+        msg.text = text
         for i in range(5):
-            self.pi_speech_request_publisher.publish(
-                seq = seq, 
-                voice_id = self.get_voice_id(self.person_id),
-                person_id = self.person_id,
-                pi_id = self.pi_id,
-                group_id = self.group_id,
-                people_in_group = self.group_members,
-                text = text
-            )
+            self.pi_speech_request_publisher.publish(msg)
 
     def group_info_callback(self, msg):
         """
         Callback function for receving information about group members.
         """
-        self.get_logger().info('In group_info_callback')
+        self.get_logger().debug('In group_info_callback')
 
         if msg.seq > self.group_info_seq:
             if self.person_id in msg.person_ids:
@@ -142,6 +133,7 @@ class PersonNode(Node):
                 assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
                 # Check if the person has been moved to a different pi
                 if assigned_pi != self.pi_id:
+                    self.get_logger().info('A person has moved to a different pi')
                     # They have been moved
                     # Update the pi id
                     self.pi_id = assigned_pi
@@ -150,12 +142,14 @@ class PersonNode(Node):
                     # Check if a person left the group, to send to the gpt as metadata
                     for person in self.group_members:
                         if person not in others_in_group:
+                            self.get_logger().info('A person left the group')
                             self.group_members.remove(person)
                             # Tell the GPT about the member who left the group
                             self.person.member_left_group(person)
                     # Check for new person added, to send to the gpt as metadata
                     for person in others_in_group:
                         if person not in self.group_members: 
+                            self.get_logger().info('A person joined the group')
                             self.group_members.append(person)
                             # Tell the GPT about the new group member
                             self.person.member_joined_group(person)
@@ -176,24 +170,20 @@ class PersonNode(Node):
         if (msg.person_id != self.person_id) and \
             (self.person_id in msg.people_in_group) and \
             (self.group_id == msg.group_id) and \
-            (msg.seq > self.speech_seq[msg.group_id]):
+            (msg.seq > self.speech_seq[msg.group_id-1]):
             self.person.other_member_text(
                 msg.person_id, 
                 msg.group_id, 
                 msg.people_in_group, # This is everyone in the group EXCLUDING the speaker
                 msg.text
             )
-            self.speech_seq[msg.group_id] = msg.seq
+            self.speech_seq[msg.group_id-1] = msg.seq
 
     def get_voice_id(self, person_id):
-        voice_id = None
-        for person in config.PERSON_INFO:
-            if person['person_id'] == person_id:
-                voice_id = person['voice_id']
-                break
+        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None), 
         if voice_id == None:
-            print("Error! Voice_id not found for this person_id")
-        return voice_id
+            self.get_logger.info("Error! Voice_id not found for this person_id")
+        return str(voice_id)
 
 
 def main(args=None):

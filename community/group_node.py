@@ -36,16 +36,17 @@ import numpy as np
 
 class GroupNode(Node):
 
-    def __init__(self, group_id: int):
+    def __init__(self):
+
         super().__init__('group_node')
 
-        self.group_id = group_id #TODO get form launch file, not from class initialisation
+        # Get group_id from launch file
+        self.declare_parameter('group_id', 0)
+        self.group_id = self.get_parameter('group_id').get_parameter_value().integer_value
+
         # The max number of people in this group
         # TODO delete? num_members not used currently
-        for group in config.GROUP_PI_ASSIGMENTS:
-            if group['group_id'] == group_id:
-                self.num_members = len(group['pi_ids'])
-                break
+        self.num_members = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
         # The people in this group (this changes)
         self.group_members = []
         # Any new members added
@@ -85,21 +86,26 @@ class GroupNode(Node):
         """
         Callback function for info on group assignment/members.
         """
-        self.get_logger().info('In group_info_callback')
+        self.get_logger().debug('In group_info_callback')
         if msg.seq > self.group_info_seq:
             if msg.group_id == self.group_id:
-                # Check for people who have left
-                if len(self.group_members != 0):
+                self.get_logger().info('In Here')
+                # Check for people who have left, if there is >0 people in the group
+                if len(self.group_members) != 0:
                     for person_id in self.group_members:
                         if person_id not in msg.person_ids:
                             self.group_members.remove(person_id)
                             self.left_members.append(person_id)
-                # Check for new person added
-                if len(msg.person_ids != 0):
+                # Check for new person added, if there are any other members of the group
+                self.get_logger().info(f'np.count_nonzero(msg.person_ids) {np.count_nonzero(msg.person_ids)}')
+                if np.count_nonzero(msg.person_ids) != 0:
+                    self.get_logger().info('In Here2')
                     for person_id in msg.person_ids:
-                        if person_id not in self.group_members:
+                        if person_id not in self.group_members and person_id != 0:
+                            self.get_logger().info('In Here3')
                             self.group_members.append(person_id)
                             self.new_members.append(person_id)
+                            self.get_logger().info(f'self.new_members {self.new_members}')
             self.group_info_seq = msg.seq
 
     def pi_speech_complete_callback(self, msg):
@@ -117,8 +123,9 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request is needed.
         If yes, choose the next person to request text from and request it.
         """
-        # Check if new text required (if last person's test has been spoken).
+        # Check if new text required (if last person's text has been spoken).
         if self.last_text_completed == True:
+            self.get_logger().info('In Here6')
             # TODO add in some time check so we are not saying hello/goodbye too often...
             # if people are leaving and coming very quickly then skip the introductions and goodbyes
             # and just ask for straight-forward conversation.
@@ -130,37 +137,42 @@ class GroupNode(Node):
                 # Person leaving says goodbye / feeling sleepy
                 person_id = self.left_members.pop(0)
                 if person_id not in self.new_members:
+                    msg = PersonTextRequest()
+                    msg.seq = self.text_seq
+                    msg.person_id = person_id
+                    msg.group_id = self.group_id
+                    msg.message_type = 1
                     for i in range(10):
-                        self.person_text_request_publisher.publish(
-                            seq = self.text_seq,
-                            person_id = person_id,
-                            group_id = self.group_id,
-                            message_type = 1
-                        )
+                        self.person_text_request_publisher.publish(msg)
+                    self.last_text_completed = False
             # Check if any people who have joined
             # Check they also didn't just leave (too soon to say hello again)
             elif len(self.new_members) != 0:
+                self.get_logger().info('In Here4')
                 # Person joining says hello
                 person_id = self.new_members.pop(0)
                 if person_id not in self.left_members:
+                    self.get_logger().info('In Here5')
+                    msg = PersonTextRequest()
+                    msg.seq = self.text_seq
+                    msg.person_id = person_id
+                    msg.group_id = self.group_id
+                    msg.message_type = 0
                     for i in range(10):
-                        self.person_text_request_publisher.publish(
-                            seq = self.text_seq,
-                            person_id = person_id,
-                            group_id = self.group_id,
-                            message_type = 0
-                        )
+                        self.person_text_request_publisher.publish(msg)
+                    self.last_text_completed = False
             # Otherwise, choose a person at random to request text from
             else:
-                person_id = random.choice(self.group_members)# TODO more sophisticated picking technique
-                for i in range(10):
-                    self.person_text_request_publisher.publish(
-                        seq = self.text_seq,
-                        person_id = person_id,
-                        group_id = self.group_id,
-                        message_type = 2
-                    )
-            self.last_text_completed = False
+                if len(self.group_members) > 0: # If not the very beginning of the run when noone has been put in the group yet.
+                    person_id = random.choice(self.group_members)# TODO more sophisticated picking technique
+                    msg = PersonTextRequest()
+                    msg.seq = self.text_seq
+                    msg.person_id = person_id
+                    msg.group_id = self.group_id
+                    msg.message_type = 2
+                    for i in range(10):
+                        self.person_text_request_publisher.publish(msg)
+                    self.last_text_completed = False
             
             
 

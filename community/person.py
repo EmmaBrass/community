@@ -2,8 +2,9 @@
 from openai import OpenAI
 import json
 import os
+import re
 import time
-import datetime
+from datetime import datetime
 import community.configuration as config
 
 # interactions as a dict... a list of all the text they have exchanged with other people in order, with time stamps?
@@ -35,11 +36,11 @@ class Person():
             'neuroticism': neuroticism,
             'agreeableness': agreeableness,
             'extraversion': extraversion
-        },
-        self.history = history, # Where they come from, their job, what they like and dislike.
+        }
+        self.history = history # Where they come from, their job, what they like and dislike.
         self.relationships = relationships # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
         # This means new relationships can be formed if a new person was in the group.  Maybe also a .txt file ?
-        self.interactions = {} # create interactions dict
+        self.interactions = [] # create interactions list
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
 
@@ -83,7 +84,7 @@ class Person():
             These relationships are important.  You should let your pre-existing relationship \
             with a person guide how you interact with them if you are ever in the same group \
             conversation." #TODO try with and without reminder of past interactions w/ group members
-            # TODO make these (apart from <RESPOND> into function calls???
+            # TODO make these (apart from <RESPOND>) into function calls???
         self.api_key = "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"
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", self.api_key))
         self.create_assistant(intro_instructions)
@@ -202,14 +203,14 @@ class Person():
         self, 
         person_id: int, 
         group_id: int, 
-        people_in_group: list, # Others in the group, EXCLUDES the speaker
+        people_in_group: list, # Others in the group; EXCLUDES the speaker; id numbers not names
         text: str
     ):
         """
         Update a dict that keeps track of all things said in groups where
         this person is present.
         """
-        formatted_now = datetime.now.strftime(self.datetime_format)
+        formatted_now = datetime.now().strftime(self.datetime_format)
         self.interactions.append({
             'datetime': formatted_now, 
             'group_id': group_id,
@@ -219,11 +220,7 @@ class Person():
         }) 
 
     def get_name_from_person_id(self, person_id: int):
-        name = None
-        for person in config.PERSON_INFO:
-            if person['person_id'] == person_id:
-                name = person['name']
-                break
+        name = config.PERSON_INFO_DICT.get(person_id, {}).get('name', None), 
         if name == None:
             print("Error! Name not found for this person_id")
         return name
@@ -258,11 +255,24 @@ class Person():
         """
         user_message = self.add_user_message(self.thread, message)
         completed = self.run(self.thread, self.assistant)
+        print(f"completed {completed}")
         if completed == True:
             response = self.get_response(self.thread, user_message)
-            print(response)
-            self.update_interations(response)
-            return response
+            # Convert response to a string
+            response_str = str(response)
+            # Define a regular expression pattern to find the value
+            pattern = r'value=(?:"([^"]*)"|\'([^\']*)\')'
+            # Search for the pattern in the response string
+            matches = re.findall(pattern, response_str)
+            # Extract the values from the matches
+            extracted_values = [match[0] if match[0] else match[1] for match in matches]
+            # If you want to get the first match only
+            if extracted_values:
+                first_value = extracted_values[0]
+                print("First Extracted Value:", first_value)
+            else:
+                print("No value found in the response.")
+            return first_value
         else:
             print("GPT run error!")
 

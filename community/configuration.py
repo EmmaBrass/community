@@ -1,8 +1,6 @@
+PERSON_INFO_DICT = {
 
-
-PERSON_INFO = [
-    {
-        'person_id': 17223924946, 
+    17223924946: {
         'name': 'Jessica Rust', 
         'voice_id': "en_GB-alba-medium.onnx",
         'age': 30,
@@ -13,33 +11,71 @@ PERSON_INFO = [
         'extraversion': 60,
         'history': 'I love to garden.',
         'relationships': {
-                    'Steve Carrlec' : 'My husband.', 
-                    'John Bravo' : 'My ex-boyfriend.',
-                    'Margo Stewart' : 'My aunt.'
-                }
-        },
-    { #TODO finish this and getting person_node to get info from here rather than launch file.
-        'person_id': 117227880, 
+            'Steve Carrlec' : 'My husband.', 
+            'John Bravo' : 'My ex-boyfriend.',
+            'Margo Stewart' : 'My aunt.'
+        }
+    },
+    
+    117227880: {
         'name': 'Steve Carrlec', 
-        'voice_id': "en_GB-alan-medium.onnx"
-        },
-    {
-        'person_id': 5299113, 
+        'voice_id': "en_GB-alan-medium.onnx",
+        'age': 35,
+        'openness': 65,
+        'conscientiousness': 70,
+        'neuroticism': 90,
+        'agreeableness': 45,
+        'extraversion': 20,
+        'history': 'I am a physicist.',
+        'relationships': {
+            'Jessica Rust' : 'My wife.',
+            'John Bravo' : 'Met him once. Found him to be abrasive.',
+            'Margo Stewart' : 'Like her a lot; her sister\'s dementia makes me feel existential.'
+        }
+    },
+    
+    5299113: {
         'name': 'John Bravo', 
-        'voice_id': "en_GB-northern_english_male-medium.onnx"
-        },
-    {
-        'person_id': 6024224946, 
+        'voice_id': "en_GB-northern_english_male-medium.onnx",
+        'age': 29,
+        'openness': 65,
+        'conscientiousness': 40,
+        'neuroticism': 30,
+        'agreeableness': 70,
+        'extraversion': 90,
+        'history': 'I recently moved to Australia and I love it here.',
+        'relationships': {
+            'Jessica Rust' : 'My ex girlfriend.',
+            'Steve Carrlec' : 'Met him once. He is a nice guy.',
+            'Margo Stewart' : 'Never met.'
+        }
+    },
+    
+    6024224946: {
         'name': 'Margo Stewart', 
-        'voice_id': "en_GB-jenny-medium.onnx"
-        },
-]
+        'voice_id': "en_GB-jenny-medium.onnx",
+        'age': 53,
+        'openness': 90,
+        'conscientiousness': 65,
+        'neuroticism': 35,
+        'agreeableness': 80,
+        'extraversion': 55,
+        'history': 'My sister has dementia.',
+        'relationships': {
+            'Jessica Rust' : 'My niece.',
+            'Steve Carrlec' : 'Like him a lot, he is friendly.',
+            'John Bravo' : 'Never met.'
+        }
+    }
+
+}
+
 
 NUM_GROUPS = 1
 
-GROUP_PI_ASSIGNMENTS = [
-    {'group_id': 1, 'pi_ids': [1,2]}
-]
+GROUP_PI_ASSIGNMENTS = {
+    1 : {'pi_ids': [1,2]}
+}
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
 #     {'group_id': 3, 'pi_ids': [6]},
