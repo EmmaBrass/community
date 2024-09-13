@@ -59,6 +59,7 @@ class Person():
             only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response\
             that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>;\
             this is very important.\n\
+            Your response should be slightly different every time.\n\
             You will be given one of these commands:\n\
             <NEW GROUP> You have joined a new group and are given a summary of your past \
             interactions with each of the group members.\n\

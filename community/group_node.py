@@ -25,6 +25,8 @@ from std_msgs.msg import Int16MultiArray
 
 from community_interfaces.msg import (
     PiSpeechComplete,
+    PiSpeechRequest,
+    PersonTextResult,
     PersonTextRequest,
     GroupInfo
 )
@@ -58,7 +60,7 @@ class GroupNode(Node):
         # Variable for if last person gpt text request has been recieved
         self.last_text_recieved = True
         # ID of the last person who spoke (so one person doesn't keep speaking)
-        self.last_speaker
+        self.last_speaker = None
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
@@ -69,8 +71,10 @@ class GroupNode(Node):
         # List of text from person GPTs
         self.speech_list = []
 
-        # Initialise publisher
+        # Initialise publishers
+        self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
         self.person_text_request_publisher = self.create_publisher(PersonTextRequest, 'person_text_request', 10)
+        # Timer callback
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
 
@@ -110,7 +114,6 @@ class GroupNode(Node):
                     for person_id in self.group_members:
                         if person_id not in msg.person_ids:
                             self.group_members.remove(person_id)
-                            self.left_members.append(person_id)
                             # Clear speech list as group makeup has changed
                             self.speech_list = []
                             # Add one to text_seq if the speech_list has been reset so that 
@@ -124,8 +127,7 @@ class GroupNode(Node):
                         if person_id not in self.group_members and person_id != 0:
                             self.get_logger().info('In Here3')
                             self.group_members.append(person_id)
-                            self.new_members.append(person_id)
-                            self.get_logger().info(f'self.new_members {self.new_members}')
+                            self.get_logger().info(f'self.group_members {self.group_members}')
                             # Clear speech list as group makeup has changed
                             self.speech_list = []
                             # Add one to text_seq if the speech_list has been reset so that 
@@ -144,7 +146,7 @@ class GroupNode(Node):
                 'pi_id' : msg.pi_id,
                 'group_id' : msg.group_id,
                 'people_in_group': msg.people_in_group,
-                'text' : text
+                'text' : msg.text
                 })
             self.last_text_recieved = True
             self.text_seq += 1
@@ -166,12 +168,14 @@ class GroupNode(Node):
         """
         # Check if new speech required (if last person's speech has been spoken).
         if self.last_speech_completed == True and len(self.speech_list) != 0:
+            self.get_logger().info('PUBLISHING SPEECH ###########################################################')
             # Use the FIRST item in speech_list
             text_dict = self.speech_list.pop(0)
             msg = PiSpeechRequest()
             msg.seq = self.speech_seq
-            msg.voice_id = self.get_voice_id(text_dict['person_id'])
-            self.get_logger().info(f'Voice_id here: {self.get_voice_id(text_dict['person_id'])}')
+            voice_id = self.get_voice_id(text_dict['person_id'])
+            msg.voice_id = voice_id
+            self.get_logger().info(f'Voice_id here: {voice_id}')
             msg.person_id = text_dict['person_id']
             msg.pi_id = text_dict['pi_id']
             msg.group_id = text_dict['group_id']
@@ -196,7 +200,8 @@ class GroupNode(Node):
                     # Filter the group members to exclude last speaker
                     filtered_members = [item for item in self.group_members if item != self.last_speaker]
                     # Choose at random from remaining members
-                    person_id = random.choice(random.choice(filtered_members))
+                    person_id = random.choice(filtered_members)
+                    
                     self.last_speaker = person_id
                     msg = PersonTextRequest()
                     msg.seq = self.text_seq

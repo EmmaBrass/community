@@ -10,6 +10,7 @@ from std_msgs.msg import Int16MultiArray
 from community_interfaces.msg import (
     PiSpeechRequest,
     PersonTextRequest,
+    PersonTextResult,
     GroupInfo
 )
 import community.configuration as config
@@ -118,7 +119,7 @@ class PersonNode(Node):
         msg.people_in_group = self.group_members
         msg.text = text
         for i in range(10):
-            self.person_text_request_publisher.publish(msg)
+            self.person_text_result_publisher.publish(msg)
 
 
     def group_info_callback(self, msg):
