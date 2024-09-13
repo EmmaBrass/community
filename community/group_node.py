@@ -47,7 +47,7 @@ class GroupNode(Node):
         # The max number of people in this group
         # TODO delete? num_members not used currently
         self.num_members = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
-        # The people in this group (this changes)
+        # The people currently in this group (id numbers) (this changes)
         self.group_members = []
         # Any new members added
         self.new_members = []
@@ -57,6 +57,8 @@ class GroupNode(Node):
         self.last_speech_completed = True
         # Variable for if last person gpt text request has been recieved
         self.last_text_recieved = True
+        # ID of the last person who spoke (so one person doesn't keep speaking)
+        self.last_speaker
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
@@ -111,6 +113,9 @@ class GroupNode(Node):
                             self.left_members.append(person_id)
                             # Clear speech list as group makeup has changed
                             self.speech_list = []
+                            # Add one to text_seq if the speech_list has been reset so that 
+                            # text results from requests sent before the reset are ignored
+                            self.text_seq += 1
                 # Check for new person added, if there are any other members of the group
                 self.get_logger().info(f'np.count_nonzero(msg.person_ids) {np.count_nonzero(msg.person_ids)}')
                 if np.count_nonzero(msg.person_ids) != 0:
@@ -123,6 +128,9 @@ class GroupNode(Node):
                             self.get_logger().info(f'self.new_members {self.new_members}')
                             # Clear speech list as group makeup has changed
                             self.speech_list = []
+                            # Add one to text_seq if the speech_list has been reset so that 
+                            # text results from requests sent before the reset are ignored
+                            self.text_seq += 1
             self.group_info_seq = msg.seq
 
     def person_text_result_callback(self, msg):
@@ -132,37 +140,14 @@ class GroupNode(Node):
         self.get_logger().info('In person_text_result_callback')
         if msg.seq == self.text_seq and msg.group_id == self.group_id:
             self.speech_list.append({
-                'seq' : msg.seq,
                 'person_id' : msg.person_id,
+                'pi_id' : msg.pi_id,
                 'group_id' : msg.group_id,
                 'people_in_group': msg.people_in_group,
                 'text' : text
                 })
             self.last_text_recieved = True
-        # TODO check text_seq and update here or elsewhere ?
-        # TODO list for storing the text
-        # TODO list gets reset when someone leaves or joins the group
-
-    ########
-    # TODO this has been copied here from the person_node - edit to fit here
-    def pi_speech_request_pub(self, seq, text):
-        """
-        Publish text to the pi_speech_request topic.
-
-        :param text: The text that needs to be spoken.
-        """
-        self.get_logger().info('In pi_speech_request_pub')
-        msg = PiSpeechRequest()
-        msg.seq = seq
-        msg.voice_id = self.get_voice_id(self.person_id)
-        self.get_logger().info(f'Voice_id here: {self.get_voice_id(self.person_id)}')
-        msg.person_id = self.person_id
-        msg.pi_id = self.pi_id
-        msg.group_id = self.group_id
-        msg.people_in_group = self.group_members
-        msg.text = text
-        for i in range(5):
-            self.pi_speech_request_publisher.publish(msg)
+            self.text_seq += 1
 
     def pi_speech_complete_callback(self, msg):
         """
@@ -176,64 +161,59 @@ class GroupNode(Node):
 
     def timer_callback(self):
         """
-        Every timer_period seconds, check if a next text request is needed.
-        If yes, choose the next person to request text from and request it.
+        Every timer_period seconds, check if a next text request or speech is needed.
+        If yes, request it.
         """
-        # Check if new text required (if last person's text has been spoken).
-        if self.last_text_completed == True: # TODO use this flag just to send out the pi_speech_request.
-            # TODO need last_text_recevied and last_speech_completed flags seperately !!!
+        # Check if new speech required (if last person's speech has been spoken).
+        if self.last_speech_completed == True and len(self.speech_list) != 0:
+            # Use the FIRST item in speech_list
+            text_dict = self.speech_list.pop(0)
+            msg = PiSpeechRequest()
+            msg.seq = self.speech_seq
+            msg.voice_id = self.get_voice_id(text_dict['person_id'])
+            self.get_logger().info(f'Voice_id here: {self.get_voice_id(text_dict['person_id'])}')
+            msg.person_id = text_dict['person_id']
+            msg.pi_id = text_dict['pi_id']
+            msg.group_id = text_dict['group_id']
+            msg.people_in_group = text_dict['people_in_group']
+            msg.text = text_dict['text']
+            for i in range(5):
+                self.pi_speech_request_publisher.publish(msg)
             self.get_logger().info('In Here6')
-            # TODO add in some time check so we are not saying hello/goodbye too often...
-            # if people are leaving and coming very quickly then skip the introductions and goodbyes
-            # and just ask for straight-forward conversation.
-
-
-
+            self.last_speech_completed = False
+        # If last text was recevied or the group members have just been changed
+        # TODO ever a case where we send a person too many text requests?
         if self.last_text_recieved == True or len(self.speech_list) == 0:
-            self.text_seq += 1
-            # Check if any people who have left: only say 
-            # goodbye if they are not ALSO in the new_members list, otherwise 
-            # they may have been added and removed too quickly for even a hello/goodbye
-            if len(self.left_members) != 0:
-                # Person leaving says goodbye / feeling sleepy
-                person_id = self.left_members.pop(0)
-                if person_id not in self.new_members:
-                    msg = PersonTextRequest()
-                    msg.seq = self.text_seq :
-                    msg.person_id = person_id
-                    msg.group_id = self.group_id
-                    msg.message_type = 1
-                    for i in range(10):
-                        self.person_text_request_publisher.publish(msg)
-                    self.last_text_recieved = False
-            # Check if any people who have joined
-            # Check they also didn't just leave (too soon to say hello again)
-            elif len(self.new_members) != 0:
-                self.get_logger().info('In Here4')
-                # Person joining says hello
-                person_id = self.new_members.pop(0)
-                if person_id not in self.left_members:
-                    self.get_logger().info('In Here5')
+            if len(self.group_members) > 0: # If not the very beginning of the run when noone has been put in the group yet.
+                if len(self.group_members) == 1: # If only one person in group; talk to themselves!
+                    person_id = self.group_members[0]
                     msg = PersonTextRequest()
                     msg.seq = self.text_seq
                     msg.person_id = person_id
                     msg.group_id = self.group_id
-                    msg.message_type = 0
-                    for i in range(10):
-                        self.person_text_request_publisher.publish(msg)
-                    self.last_text_recieved = False
-            # Otherwise, choose a person at random to request text from
-            else:
-                if len(self.group_members) > 0: # If not the very beginning of the run when noone has been put in the group yet.
-                    person_id = random.choice(self.group_members)# TODO more sophisticated picking technique
+                    msg.message_type = 3 # TODO implement in person_node and person class (talking to self)
+                else:
+                    # Filter the group members to exclude last speaker
+                    filtered_members = [item for item in self.group_members if item != self.last_speaker]
+                    # Choose at random from remaining members
+                    person_id = random.choice(random.choice(filtered_members))
+                    self.last_speaker = person_id
                     msg = PersonTextRequest()
                     msg.seq = self.text_seq
                     msg.person_id = person_id
                     msg.group_id = self.group_id
                     msg.message_type = 2
-                    for i in range(10):
-                        self.person_text_request_publisher.publish(msg)
-                    self.last_text_recieved = False
+                for i in range(10):
+                    self.person_text_request_publisher.publish(msg)
+                self.last_text_recieved = False
+
+
+    def get_voice_id(self, person_id):
+        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None)
+        self.get_logger().info(f"Voice ID is: {voice_id}")
+        if voice_id == None:
+            self.get_logger().info("Error! Voice_id not found for this person_id")
+        return str(voice_id)
             
             
 

@@ -68,6 +68,7 @@ class Person():
             <MEMBER JOINED> You will be given the name of the person who has joined the group.\n\
             <RESPOND-NORMAL> It is your turn to speak.  Say something that continues the conversation.\n\
             This command may include some instructions on what topic you should speak about.\n\
+            <RESPOND-ALONE> You are the only one in the group.  Say you are lonely.\n\
             <RESPOND-JOINING> Say hello to everyone in your new group.\n\
             <RESPOND-LEAVING> Say goodbye to everyone in the group you are leaving.\n\
             Before we start, I will give you some information about yourself.  \
@@ -115,6 +116,8 @@ class Person():
             text = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
         elif message_type == 2:
             text = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
+        elif message_type == 3:
+            text = self.add_user_message_and_get_response("<RESPOND-ALONE>")
         # Save the text to the interactions memory dict
         self.update_interactions_dict(person_id, group_id, people_in_group, text)
         return text

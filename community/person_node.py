@@ -113,6 +113,7 @@ class PersonNode(Node):
         msg = PersonTextResult()
         msg.seq = seq
         msg.person_id = self.person_id
+        msg.pi_id = self.pi_id
         msg.group_id = self.group_id
         msg.people_in_group = self.group_members
         msg.text = text
@@ -134,7 +135,7 @@ class PersonNode(Node):
                 assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
                 # Check if the person has been moved to a different pi
                 if assigned_pi != self.pi_id:
-                    self.get_logger().info('A person has moved to a different pi')
+                    self.get_logger().info('This person has moved to a different pi')
                     # They have been moved
                     # Update the pi id
                     self.pi_id = assigned_pi
@@ -179,13 +180,6 @@ class PersonNode(Node):
                 msg.text
             )
             self.speech_seq[msg.group_id-1] = msg.seq
-
-    def get_voice_id(self, person_id):
-        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None)
-        self.get_logger().info(f"Voice ID is: {voice_id}")
-        if voice_id == None:
-            self.get_logger().info("Error! Voice_id not found for this person_id")
-        return str(voice_id)
 
 
 def main(args=None):
