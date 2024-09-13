@@ -33,6 +33,7 @@ class PersonNode(Node):
         self.person = Person(
             person_id = self.person_id,
             name = config.PERSON_INFO_DICT.get(self.person_id, {}).get('name', "Person not found."), 
+            gender = config.PERSON_INFO_DICT.get(self.person_id, {}).get('gender', "Person not found."), 
             age = config.PERSON_INFO_DICT.get(self.person_id, {}).get('age', "Person not found."), 
             openness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('openness', "Person not found."),  
             conscientiousness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('conscientiousness', "Person not found."), 
@@ -54,9 +55,9 @@ class PersonNode(Node):
         self.speech_seq = [-1]*config.NUM_GROUPS
         
         # Initialise publishers
-        self.pi_speech_request_publisher = self.create_publisher(
-            PiSpeechRequest, 
-            'pi_speech_request', 
+        self.person_text_result_publisher = self.create_publisher(
+            PersonTextResult, 
+            'person_text_result', 
             10
         )
         # Initialise subscribers
@@ -94,30 +95,30 @@ class PersonNode(Node):
             text = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
-                self.group_members, # Members of the group EXCLUDING this person.
+                self.group_members, # Members of the group EXCLUDING the person who will talk.
                 msg.message_type
             )
             self.get_logger().info(f'Text from GPT!: {text}')
-            self.pi_speech_request_pub(msg.seq, text)
+            self.person_text_result_pub(msg.seq, text)
             self.text_seq[msg.group_id-1] = msg.seq
 
-    def pi_speech_request_pub(self, seq, text):
+    def person_text_result_pub(self, seq, text):
         """
-        Publish text to the pi_speech_request topic.
+        Publish text to the person_text_result topic.
 
-        :param text: The text that needs to be spoken.
+        :param seq: The seq id.
+        :param text: The text returned from the GPT.
         """
-        self.get_logger().info('In pi_speech_request_pub')
-        msg = PiSpeechRequest()
+        self.get_logger().info('In person_text_result_pub')
+        msg = PersonTextResult()
         msg.seq = seq
-        msg.voice_id = self.get_voice_id(self.person_id)
         msg.person_id = self.person_id
-        msg.pi_id = self.pi_id
         msg.group_id = self.group_id
         msg.people_in_group = self.group_members
         msg.text = text
-        for i in range(5):
-            self.pi_speech_request_publisher.publish(msg)
+        for i in range(10):
+            self.person_text_request_publisher.publish(msg)
+
 
     def group_info_callback(self, msg):
         """
@@ -180,9 +181,10 @@ class PersonNode(Node):
             self.speech_seq[msg.group_id-1] = msg.seq
 
     def get_voice_id(self, person_id):
-        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None), 
+        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None)
+        self.get_logger().info(f"Voice ID is: {voice_id}")
         if voice_id == None:
-            self.get_logger.info("Error! Voice_id not found for this person_id")
+            self.get_logger().info("Error! Voice_id not found for this person_id")
         return str(voice_id)
 
 

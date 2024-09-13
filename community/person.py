@@ -19,6 +19,7 @@ class Person():
         self, 
         person_id: int,
         name: str, 
+        gender: str,
         age: int, 
         openness: int, 
         conscientiousness: int, 
@@ -30,6 +31,7 @@ class Person():
     ):
         self.name = name
         self.age = age
+        self.gender = gender
         self.big_five_traits = {
             'openness': openness, 
             'conscientiousness': conscientiousness,
@@ -69,7 +71,7 @@ class Person():
             <RESPOND-JOINING> Say hello to everyone in your new group.\n\
             <RESPOND-LEAVING> Say goodbye to everyone in the group you are leaving.\n\
             Before we start, I will give you some information about yourself.  \
-            Your name is {self.name} and you are {self.age} years old.  \
+            Your name is {self.name} and you are a {self.gender} and {self.age} years old.  \
             To describe your personality, I will give you a score from 0 (low) \
             to 10 (high) on each of the Big Five personality traits:\n\
             openness: {self.big_five_traits['openness']}\n\

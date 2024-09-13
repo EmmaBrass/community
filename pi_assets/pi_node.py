@@ -18,7 +18,9 @@ from piper.voice import PiperVoice
 
 from community_interfaces.msg import (
     PiPersonUpdates,
-    PiSpeechComplete
+    PiSpeechComplete,
+    PiSpeechRequest,
+    GroupInfo
 )
 
 
@@ -56,13 +58,13 @@ class PiNode(Node):
 
         # Initialise subscribers
         self.pi_speech_request_subscription = self.create_subscription(
-            String,
+            PiSpeechRequest,
             'pi_speech_request', 
             self.pi_speech_request_callback, 
             10
         )
         self.group_info_subscription = self.create_subscription(
-            String,
+            GroupInfo,
             'group_info', 
             self.group_info_callback, 
             10
@@ -77,6 +79,7 @@ class PiNode(Node):
         """
         self.get_logger().info('In group_info_callback')
         if self.speech_seq == None:
+            self.get_logger().info('Setting speech_seq list')
             # Count the number of members of the group and set the speech_seq
             self.speech_seq = [-1]*msg.num_pis # Seq list for receiving speech requests - one item for each group
 
@@ -91,16 +94,18 @@ class PiNode(Node):
             # If yes, submit the text to the speakers.
             if msg.pi_id == self.pi_id and \
             (msg.seq > self.speech_seq[msg.group_id]):
+                self.get_logger().info(f'Requesting tts for text: {msg.text}')
                 self.text_to_speech(msg.text, msg.voice_id)
-                self.pi_speech_complete(msg.seq)
+                self.pi_speech_complete(msg.seq, msg.group_id)
             self.speech_seq[msg.group_id] = msg.seq
 
-    def pi_speech_complete(self, seq):
+    def pi_speech_complete(self, seq, group_id):
         """
         Publish to say that the text has been spoken.
         """
         msg = PiSpeechComplete()
         msg.seq = seq
+        msg.group_id = group_id
         msg.complete = True
         for i in range(10):
             self.pi_speech_complete_publisher.publish(msg)
