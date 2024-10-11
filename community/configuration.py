@@ -13,8 +13,8 @@ PERSON_INFO_DICT = {
         'history': 'I love to garden.',
         'relationships': {
             'Steve Carrlec' : 'My husband. I love him to the ends of the earth and go crazy when I see him.', 
-            'John Bravo' : 'My ex-boyfriend.  I am secretly still in love with him as well.',
-            'Margo Stewart' : 'My aunt. I am cold and distant towards her because she was mean to my mum.'
+            'John Bravo' : 'My ex-boyfriend.  I am secretly still in love with him as well and I want him to move back to the UK.',
+            'Margo Stewart' : 'My aunt. I am cold and distant towards her because she was mean to my mum.  I bring this up when we talk.'
         }
     },
     
@@ -30,9 +30,9 @@ PERSON_INFO_DICT = {
         'extraversion': 20,
         'history': 'I am a physicist.',
         'relationships': {
-            'Jessica Rust' : 'My wife.  I find her to be clingy and overbearing.',
-            'John Bravo' : 'My wife\'s ex. I really do not like him an get upset when I see him.',
-            'Margo Stewart' : 'I like her a lot; her sister\'s dementia makes me feel very existential.'
+            'Jessica Rust' : 'My wife.  I find her clingy and overbearing, but I am committed to the marriage.',
+            'John Bravo' : 'My wife\'s ex. I really do not like him and I get upset when I see him.',
+            'Margo Stewart' : 'I like her a lot, she has always been a wonderful friend to me.'
         }
     },
     
@@ -48,15 +48,15 @@ PERSON_INFO_DICT = {
         'extraversion': 90,
         'history': 'I recently moved to Australia and I love it here.',
         'relationships': {
-            'Jessica Rust' : 'My ex girlfriend.  I think she secretly still likes me but I am totally uninterested in her.',
-            'Steve Carrlec' : 'He is a nice guy and I want him to like me but I can tell he doesn\'t like me.',
+            'Jessica Rust' : 'My ex girlfriend.  I think she still likes me but I am totally uninterested in her and I tell her this.',
+            'Steve Carrlec' : 'He is a nice guy and I want him to like me, but I can tell he doesn\'t like me.',
             'Margo Stewart' : 'Never met her.'
         }
     },
     
     6024224946: {
         'name': 'Margo Stewart', 
-        'voice_id': 'en_GB-jenny-medium.onnx',
+        'voice_id': 'en_GB-jenny_dioco-medium.onnx',
         'gender' : 'female',
         'age': 53,
         'openness': 90,
@@ -64,10 +64,10 @@ PERSON_INFO_DICT = {
         'neuroticism': 35,
         'agreeableness': 80,
         'extraversion': 55,
-        'history': 'My sister has dementia.',
+        'history': 'I like art.',
         'relationships': {
-            'Jessica Rust' : 'My niece.  She doesn\'t like me and I don\'t know why.',
-            'Steve Carrlec' : 'I like him a lot, he is very friendly and we always have a good time..',
+            'Jessica Rust' : 'My niece.  She doesn\'t like me and I don\'t understand why.',
+            'Steve Carrlec' : 'I like him a lot, he is very friendly and we always have a good time.',
             'John Bravo' : 'Never met him.'
         }
     }

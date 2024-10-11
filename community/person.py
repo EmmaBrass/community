@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+import requests
 from datetime import datetime
 import community.configuration as config
 
@@ -51,15 +52,18 @@ class Person():
         Create the GPT instance and feed it the intro_instructions and
         initial data and history for the person.
         """
-        intro_instructions = f"This is an art installation.  You embody a human,\
-            with a full life and backstory.  You will assigned a group, in which you will\
+        intro_instructions = f"You embody a human, \
+            with a full life and backstory.  You will assigned a group, in which you will \
             be placed with 1 to 5 other people.  You will all have a conversation.\
-            When you are placed in a group, you will be reminded of all the past interations\
-            you have had with the others in this group.  When a user message command is given, you should\
-            only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response\
-            that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>;\
+            When you are placed in a group, you will be reminded of all the past interations \
+            you have had with the others in this group.  When a user message command is given, you should \
+            only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response \
+            that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>; \
             this is very important.\n\
-            Your response should be slightly different every time.\n\
+            If your response is not NONE, it should be slightly different every time.\n\
+            Your response should be quite dramatic and emotive.\n\
+            Rely heavily on the descriptions of the relationships between people.\n\
+            Use no more than about 30 words in a response.\n\
             You will be given one of these commands:\n\
             <NEW GROUP> You have joined a new group and are given a summary of your past \
             interactions with each of the group members.\n\
@@ -86,7 +90,7 @@ class Person():
             And here is a description of your relationships with people who you \
             already know: {self.relationships}\n\
             These relationships are important.  You should let your pre-existing relationship \
-            with a person guide how you interact with them if you are ever in the same group \
+            with a person largely guide how you interact with them if you are both in the same group \
             conversation." #TODO try with and without reminder of past interactions w/ group members
             # TODO make these (apart from <RESPOND>) into function calls???
         self.api_key = "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"
@@ -112,16 +116,16 @@ class Person():
         returns text: The text response from the GPT.
         """
         if message_type == 0:
-            text = self.add_user_message_and_get_response("<RESPOND-JOINING>")
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-JOINING>")
         elif message_type == 1:
-            text = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
         elif message_type == 2:
-            text = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
         elif message_type == 3:
-            text = self.add_user_message_and_get_response("<RESPOND-ALONE>")
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
         # Save the text to the interactions memory dict
-        self.update_interactions_dict(person_id, group_id, people_in_group, text)
-        return text
+        self.update_interactions_dict(person_id, group_id, people_in_group, response)
+        return response, gpt_message_id
 
     def member_joined_group(self, person_id: int):
         """
@@ -131,7 +135,7 @@ class Person():
         :returns response: Should be NONE
         """
         name = self.get_name_from_person_id(person_id)
-        response = self.add_user_message_and_get_response(f"<MEMBER JOINED> {name} has joined the group.")
+        response, message_id = self.add_user_message_and_get_response(f"<MEMBER JOINED> {name} has joined the group.")
         if response != "NONE":
             print("Error! GPT not returning NONE for <MEMBER JOINED> command.")
             print(response)
@@ -146,7 +150,7 @@ class Person():
         :returns response: Should be NONE
         """
         name = self.get_name_from_person_id(person_id)
-        response = self.add_user_message_and_get_response(f"<MEMBER LEFT> {name} has left the group.")
+        response, message_id = self.add_user_message_and_get_response(f"<MEMBER LEFT> {name} has left the group.")
         if response != "NONE":
             print("Error! GPT not returning NONE for <MEMBER LEFT> command.")
             print(response)
@@ -168,7 +172,7 @@ class Person():
         returns response: Should be NONE
         """
         other_members_names = [self.get_name_from_person_id(person) for person in other_members]
-        response = self.add_user_message_and_get_response(f"<NEW GROUP> You have been moved to group {group_id}, \
+        response, message_id = self.add_user_message_and_get_response(f"<NEW GROUP> You have been moved to group {group_id}, \
         the other members of the group are: {other_members_names}")
         if response != "NONE":
             print("Error! GPT not returning NONE for <NEW GROUP> command.")
@@ -198,7 +202,7 @@ class Person():
         # Maybe not needed as teh story-writing will be directing things enough that 
         # a poor memory won't be noticable ?
         name = self.get_name_from_person_id(person_id)
-        response = self.add_user_message_and_get_response(f"<TEXT> {name} says: {text}")
+        response, message_id = self.add_user_message_and_get_response(f"<TEXT> {name} says: {text}")
         if response != "NONE":
             print("Error! GPT not returning NONE for <TEXT> command.")
             print(response)
@@ -266,6 +270,7 @@ class Person():
             response = self.get_response(self.thread, user_message)
             # Convert response to a string
             response_str = str(response)
+            #print("response_str", response_str)
             # Define a regular expression pattern to find the value
             pattern = r'value=(?:"([^"]*)"|\'([^\']*)\')'
             # Search for the pattern in the response string
@@ -275,10 +280,22 @@ class Person():
             # If you want to get the first match only
             if extracted_values:
                 first_value = extracted_values[0]
-                print("First Extracted Value:", first_value)
+            #print("First Extracted Value:", first_value)
             else:
                 print("No value found in the response.")
-            return first_value
+            # Define a regular expression pattern to find the id
+            pattern = r'id=(?:"([^"]*)"|\'([^\']*)\')'
+            # Search for the pattern in the response string
+            matches = re.findall(pattern, response_str)
+            # Extract the values from the matches
+            extracted_values = [match[0] if match[0] else match[1] for match in matches]
+            # If you want to get the first match only
+            if extracted_values:
+                first_id = extracted_values[0]
+               # print("First Extracted ID:", first_id)
+            else:
+                print("No value found in the response.")
+            return first_value, first_id
         else:
             print("GPT run error!")
 
@@ -323,5 +340,69 @@ class Person():
             thread_id=thread.id, order="asc", after=user_message.id
         )
 
-    
-    
+    def delete_messages_from_id(self, start_id: str): #TODO test
+        """
+        Delete all messages in the thread starting from the one with start_id.
+        
+        :param start_id: The message_id to start deleting from
+        """
+        # Step 1: Retrieve all messages in the thread
+        messages = self.client.beta.threads.messages.list(
+            thread_id=self.thread.id, 
+            order="asc"  # Order the messages chronologically
+        )
+        
+        # Step 2: Find the message with the given start_id
+        delete_mode = False
+        messages_to_delete = []
+
+        for message in messages:
+            if message.id == start_id:
+                delete_mode = True  # Start deleting from this message onwards
+            if delete_mode:
+                messages_to_delete.append(message.id)
+        
+        # Step 3: Delete all the messages starting from start_id
+        for message_id in messages_to_delete:
+            self.delete_message2(message_id)
+            time.sleep(0.1)  # Adding a small delay to avoid rate limiting
+
+    def delete_message2(self, message_id: str):
+        """ 
+        Delete a specific message in a thread using HTTP DELETE request.
+        
+        :param message_id: The ID of the message to delete
+        """
+        url = f"https://api.openai.com/v1/threads/{self.thread.id}/messages/{message_id}"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",  # Use your OpenAI API key
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v2"  # Include the OpenAI Beta header
+        }
+
+        response = requests.delete(url, headers=headers)
+
+        if response.status_code == 200:
+            json_response = response.json()
+            if json_response.get('deleted', False):
+                print(f"Message {message_id} deleted successfully.")
+            else:
+                print(f"Message {message_id} not marked as deleted in the response.")
+        else:
+            print(f"Failed to delete message {message_id}. Status code: {response.status_code}, Response: {response.text}")
+
+    def delete_message(self, message_id: str): # TODO test
+        """ 
+        Delete a specific message in a thread.
+        
+        :param message_id: The ID of the message to delete
+        """
+        response = self.client.beta.threads.messages.delete(
+            thread_id=self.thread.id,
+            message_id=message_id
+        )
+        
+        if response['deleted']:
+            print(f"Message {message_id} deleted successfully.")
+        else:
+            print(f"Failed to delete message {message_id}.")

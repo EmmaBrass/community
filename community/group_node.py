@@ -28,7 +28,8 @@ from community_interfaces.msg import (
     PiSpeechRequest,
     PersonTextResult,
     PersonTextRequest,
-    GroupInfo
+    GroupInfo, 
+    DeleteGptMessageId
 )
 import community.configuration as config
 
@@ -59,12 +60,14 @@ class GroupNode(Node):
         self.last_speech_completed = True
         # Variable for if last person gpt text request has been recieved
         self.last_text_recieved = True
-        # ID of the last person who spoke (so one person doesn't keep speaking)
+        # ID of the last person who spoke (so one person doesn't keep speaking repeatedly)
         self.last_speaker = None
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
         self.speech_seq = 0
+        # Seq for sending delete gpt message id
+        self.delete_seq = 0
         # Seq for receiving group info
         self.group_info_seq = -1
 
@@ -73,6 +76,7 @@ class GroupNode(Node):
 
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
+        self.delete_gpt_message_id_publisher = self.create_publisher(DeleteGptMessageId, 'delete_gpt_message_id', 10)
         self.person_text_request_publisher = self.create_publisher(PersonTextRequest, 'person_text_request', 10)
         # Timer callback
         timer_period = 0.5  # seconds
@@ -105,48 +109,85 @@ class GroupNode(Node):
         """
         Callback function for info on group assignment/members.
         """
-        self.get_logger().debug('In group_info_callback')
         if msg.seq > self.group_info_seq:
+            self.get_logger().debug('In group_info_callback')
             if msg.group_id == self.group_id:
-                self.get_logger().info('In Here')
-                # Check for people who have left, if there is >0 people in the group
+                # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
                     for person_id in self.group_members:
                         if person_id not in msg.person_ids:
+                            self.get_logger().info('Someone left the group')
                             self.group_members.remove(person_id)
+                            self.get_logger().info(f'self.group_members {self.group_members}')
                             # Clear speech list as group makeup has changed
+                            self.publish_delete_gpt_message_id()
                             self.speech_list = []
+                            self.last_text_recieved = True
+                            #TODO here call function to find unique person_id message to the right of the last spoken id and publish new message type :)
                             # Add one to text_seq if the speech_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
-                # Check for new person added, if there are any other members of the group
-                self.get_logger().info(f'np.count_nonzero(msg.person_ids) {np.count_nonzero(msg.person_ids)}')
+                # Check for new person added, if there >0 members of the group in the message
                 if np.count_nonzero(msg.person_ids) != 0:
-                    self.get_logger().info('In Here2')
                     for person_id in msg.person_ids:
                         if person_id not in self.group_members and person_id != 0:
-                            self.get_logger().info('In Here3')
+                            self.get_logger().info('Someone joined the group')
                             self.group_members.append(person_id)
                             self.get_logger().info(f'self.group_members {self.group_members}')
                             # Clear speech list as group makeup has changed
+                            self.publish_delete_gpt_message_id()
                             self.speech_list = []
+                            self.last_text_recieved = True
                             # Add one to text_seq if the speech_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
             self.group_info_seq = msg.seq
 
+    def publish_delete_gpt_message_id(self):
+        """
+        Extract gpt_message_ids for each new instance of a person_id in self.speech_list
+        """
+        # Only do anything if there are some unpublished messages in speech_list
+        if len(self.speech_list) > 0:
+            
+            # Collect unique person_id entries from the right side of the list
+            unique_person_ids = set()  # To store the unique person_ids
+            result = []  # To store the results (person_id and gpt_message_id)
+
+            for entry in self.speech_list:
+                person_id = entry['person_id']
+                if person_id not in unique_person_ids:
+                    # Step 3: If it's a new person_id, save the person_id and gpt_message_id
+                    unique_person_ids.add(person_id)
+                    result.append({
+                        'person_id': person_id,
+                        'gpt_message_id': entry['gpt_message_id']
+                    })
+
+            # Publish a DeleteGptMessageId msg for each item in result list
+            for item in result:
+                msg = DeleteGptMessageId()
+                msg.seq = self.delete_seq
+                msg.group_id = self.group_id
+                msg.person_id = item['person_id']
+                msg.gpt_message_id = item['gpt_message_id']
+                for i in range(5):
+                    self.delete_gpt_message_id_publisher.publish(msg)
+                self.delete_seq +=1
+
     def person_text_result_callback(self, msg):
         """
         Callback for results from a person text request.
         """
-        self.get_logger().info('In person_text_result_callback')
         if msg.seq == self.text_seq and msg.group_id == self.group_id:
+            self.get_logger().info('In person_text_result_callback')
             self.speech_list.append({
                 'person_id' : msg.person_id,
                 'pi_id' : msg.pi_id,
                 'group_id' : msg.group_id,
                 'people_in_group': msg.people_in_group,
-                'text' : msg.text
+                'text' : msg.text,
+                'gpt_message_id' : msg.gpt_message_id
                 })
             self.last_text_recieved = True
             self.text_seq += 1
@@ -155,8 +196,8 @@ class GroupNode(Node):
         """
         Callback for info that the pi has finished speaking a requested text.
         """
-        self.get_logger().info('In pi_speech_complete_callback')
         if msg.seq == self.speech_seq and msg.group_id == self.group_id:
+            self.get_logger().info('In pi_speech_complete_callback')
             if msg.complete == True:
                 self.last_speech_completed = True
                 self.speech_seq += 1
@@ -168,49 +209,55 @@ class GroupNode(Node):
         """
         # Check if new speech required (if last person's speech has been spoken).
         if self.last_speech_completed == True and len(self.speech_list) != 0:
-            self.get_logger().info('PUBLISHING SPEECH ###########################################################')
+            self.get_logger().info('PUBLISHING SPEECH')
             # Use the FIRST item in speech_list
             text_dict = self.speech_list.pop(0)
-            msg = PiSpeechRequest()
-            msg.seq = self.speech_seq
-            voice_id = self.get_voice_id(text_dict['person_id'])
-            msg.voice_id = voice_id
-            self.get_logger().info(f'Voice_id here: {voice_id}')
-            msg.person_id = text_dict['person_id']
-            msg.pi_id = text_dict['pi_id']
-            msg.group_id = text_dict['group_id']
-            msg.people_in_group = text_dict['people_in_group']
-            msg.text = text_dict['text']
-            for i in range(5):
-                self.pi_speech_request_publisher.publish(msg)
-            self.get_logger().info('In Here6')
-            self.last_speech_completed = False
+            # Double check the person is still in the group
+            if text_dict['person_id'] in self.group_members:
+                msg = PiSpeechRequest()
+                msg.seq = self.speech_seq
+                voice_id = self.get_voice_id(text_dict['person_id'])
+                msg.voice_id = voice_id
+                self.get_logger().info(f'Voice_id here: {voice_id}')
+                msg.person_id = text_dict['person_id']
+                msg.pi_id = text_dict['pi_id']
+                msg.group_id = text_dict['group_id']
+                msg.people_in_group = text_dict['people_in_group']
+                msg.text = text_dict['text']
+                msg.gpt_message_id = text_dict['gpt_message_id']
+                for i in range(5):
+                    self.pi_speech_request_publisher.publish(msg)
+                self.last_speech_completed = False
         # If last text was recevied or the group members have just been changed
         # TODO ever a case where we send a person too many text requests?
-        if self.last_text_recieved == True or len(self.speech_list) == 0:
-            if len(self.group_members) > 0: # If not the very beginning of the run when noone has been put in the group yet.
-                if len(self.group_members) == 1: # If only one person in group; talk to themselves!
-                    person_id = self.group_members[0]
-                    msg = PersonTextRequest()
-                    msg.seq = self.text_seq
-                    msg.person_id = person_id
-                    msg.group_id = self.group_id
-                    msg.message_type = 3 # TODO implement in person_node and person class (talking to self)
-                else:
-                    # Filter the group members to exclude last speaker
-                    filtered_members = [item for item in self.group_members if item != self.last_speaker]
-                    # Choose at random from remaining members
-                    person_id = random.choice(filtered_members)
-                    
-                    self.last_speaker = person_id
-                    msg = PersonTextRequest()
-                    msg.seq = self.text_seq
-                    msg.person_id = person_id
-                    msg.group_id = self.group_id
-                    msg.message_type = 2
-                for i in range(10):
-                    self.person_text_request_publisher.publish(msg)
-                self.last_text_recieved = False
+        if self.last_text_recieved == True and len(self.group_members) > 0:
+            self.get_logger().info('here1')
+            # If not the very beginning of the run when noone has been put in the group yet.#
+            if len(self.group_members) == 1: # If only one person in group; talk to themselves!
+                self.get_logger().info('here2')
+                person_id = self.group_members[0]
+                msg = PersonTextRequest()
+                msg.seq = self.text_seq
+                msg.person_id = person_id
+                msg.group_id = self.group_id
+                msg.message_type = 3 # TODO implement in person_node and person class (talking to self)
+            else:
+                # Filter the group members to exclude last speaker
+                self.get_logger().info('here4')
+                filtered_members = [item for item in self.group_members if item != self.last_speaker]
+                self.get_logger().info(str(filtered_members))
+                # Choose at random from remaining members
+                person_id = random.choice(filtered_members)
+                self.get_logger().info(str(person_id))
+                self.last_speaker = person_id
+                msg = PersonTextRequest()
+                msg.seq = self.text_seq
+                msg.person_id = person_id
+                msg.group_id = self.group_id
+                msg.message_type = 2
+            for i in range(5):
+                self.person_text_request_publisher.publish(msg)
+            self.last_text_recieved = False
 
 
     def get_voice_id(self, person_id):

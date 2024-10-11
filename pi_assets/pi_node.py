@@ -96,16 +96,17 @@ class PiNode(Node):
             (msg.seq > self.speech_seq[msg.group_id]):
                 self.get_logger().info(f'Requesting tts for text: {msg.text}')
                 self.text_to_speech(msg.text, msg.voice_id)
-                self.pi_speech_complete(msg.seq, msg.group_id)
+                self.pi_speech_complete(msg.seq, msg.group_id, msg.gpt_message_id)
             self.speech_seq[msg.group_id] = msg.seq
 
-    def pi_speech_complete(self, seq, group_id):
+    def pi_speech_complete(self, seq, group_id, gpt_message_id):
         """
         Publish to say that the text has been spoken.
         """
         msg = PiSpeechComplete()
         msg.seq = seq
         msg.group_id = group_id
+        msg.gpt_message_id = gpt_message_id
         msg.complete = True
         for i in range(10):
             self.pi_speech_complete_publisher.publish(msg)

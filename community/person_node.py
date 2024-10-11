@@ -11,7 +11,8 @@ from community_interfaces.msg import (
     PiSpeechRequest,
     PersonTextRequest,
     PersonTextResult,
-    GroupInfo
+    GroupInfo,
+    DeleteGptMessageId
 )
 import community.configuration as config
 from community.person import Person
@@ -54,6 +55,8 @@ class PersonNode(Node):
         self.group_info_seq = -1
         # Seq list for receiving speech updates - one item for each group
         self.speech_seq = [-1]*config.NUM_GROUPS
+        # Seq for deletie message id
+        self.delete_seq = [-1]*config.NUM_GROUPS
         
         # Initialise publishers
         self.person_text_result_publisher = self.create_publisher(
@@ -68,10 +71,10 @@ class PersonNode(Node):
             self.person_text_request_callback, 
             10
         )
-        self.pi_speech_request_subscription = self.create_subscription(
-            PiSpeechRequest,
-            'pi_speech_request', 
-            self.pi_speech_request_callback, 
+        self.person_text_result_subscription = self.create_subscription(
+            PersonTextResult,
+            'person_text_result', 
+            self.person_text_result_callback, 
             10
         )
         self.group_info_subscription = self.create_subscription(
@@ -80,30 +83,48 @@ class PersonNode(Node):
             self.group_info_callback, 
             10
         )
+        self.delete_gpt_message_id_subscription = self.create_subscription(
+            DeleteGptMessageId,
+            'delete_gpt_message_id', 
+            self.delete_gpt_message_id_callback, 
+            10
+        )
         # Prevent unused variable warnings
         self.person_text_request_subscription 
-        self.pi_speech_request_subscription
+        self.person_text_result_subscription
         self.group_info_subscription 
+        self.delete_gpt_message_id_subscription
+
+    def delete_gpt_message_id_callback(self, msg):
+        """
+        Delete messages on the GPT thread including and after 
+        the message with the ID in the given ROS msg.
+        """ # TODO add a seq to DeleteMessageId messages in msg and from group_node
+        if msg.seq > self.delete_seq[msg.group_id-1] and msg.person_id == self.person_id:
+            self.person.delete_messages_from_id(msg.gpt_message_id)
+            self.get_logger().info("Successfully deleted unspoken gpt messages.")
+            self.delete_seq[msg.group_id-1] = msg.seq
 
     def person_text_request_callback(self, msg):
         """
         Callback function for requesting text from the GPT for this person.
         """
-        self.get_logger().info('In person_text_request_callback')
         if msg.person_id == self.person_id \
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
-            text = self.person.person_speaks(
+            self.get_logger().info('In person_text_request_callback')
+            text, gpt_message_id = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
                 self.group_members, # Members of the group EXCLUDING the person who will talk.
                 msg.message_type
             )
             self.get_logger().info(f'Text from GPT!: {text}')
-            self.person_text_result_pub(msg.seq, text)
+            self.get_logger().info(f'Message ID from GPT!: {gpt_message_id}')
+            self.person_text_result_pub(msg.seq, text, gpt_message_id)
             self.text_seq[msg.group_id-1] = msg.seq
 
-    def person_text_result_pub(self, seq, text):
+    def person_text_result_pub(self, seq, text, gpt_message_id):
         """
         Publish text to the person_text_result topic.
 
@@ -118,7 +139,8 @@ class PersonNode(Node):
         msg.group_id = self.group_id
         msg.people_in_group = self.group_members
         msg.text = text
-        for i in range(10):
+        msg.gpt_message_id = gpt_message_id
+        for i in range(5):
             self.person_text_result_publisher.publish(msg)
 
 
@@ -126,9 +148,8 @@ class PersonNode(Node):
         """
         Callback function for receving information about group members.
         """
-        self.get_logger().debug('In group_info_callback')
-
         if msg.seq > self.group_info_seq:
+            self.get_logger().debug('In group_info_callback')
             if self.person_id in msg.person_ids:
                 # Find the others in the group from the msg
                 others_in_group = [person for person in msg.person_ids if person != self.person_id]
@@ -164,16 +185,16 @@ class PersonNode(Node):
                     self.person.new_group(self.group_id, self.group_members)
             self.group_info_seq = msg.seq
 
-    def pi_speech_request_callback(self, msg):
+    def person_text_result_callback(self, msg):
         """
-        Looks at incoming pi_speech_request data and tells the GPT about it if 
-        this person is in the group (but NOT the speaker).
+        Looks at incoming person_text_result data and tells the GPT about it if 
+        this person is in the group (but they are not the speaker).
         """
-        self.get_logger().info('In pi_speech_request_callback')
         if (msg.person_id != self.person_id) and \
             (self.person_id in msg.people_in_group) and \
             (self.group_id == msg.group_id) and \
             (msg.seq > self.speech_seq[msg.group_id-1]):
+            self.get_logger().info('In person_text_result_callback')
             self.person.other_member_text(
                 msg.person_id, 
                 msg.group_id, 
