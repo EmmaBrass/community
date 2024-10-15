@@ -14,7 +14,13 @@ import community.configuration as config
 # 2024-05-10-16-44-45 : group 3 : Jessica Rust : Hey how are you?
 # 2024-05-10-16-45-17 : group 3 : Self : Fine thanks, how are you?
 
-class Person():
+
+class PersonLLM():
+    """
+    The Person's GPT functonality - 
+    Specific methods to request text from the LLM.
+    The fine details of what prompt to give the LLM will be worked out by a PromptManager class in person_node
+    """
 
     def __init__(
         self, 
@@ -43,6 +49,10 @@ class Person():
         self.history = history # Where they come from, their job, what they like and dislike.
         self.relationships = relationships # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
         # This means new relationships can be formed if a new person was in the group.  Maybe also a .txt file ?
+        # Relationship object for each relationship!
+        # Will need relationship objects to exist seperately somewhere... one object shared between two other objects and both
+        # should be able to access and update it!
+        # maybe these should be nodes?  relationship nodes?
         self.interactions = [] # create interactions list
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
@@ -103,7 +113,8 @@ class Person():
         person_id: int, 
         group_id: int, 
         people_in_group: list, # Members of the group EXCLUDING this person.
-        message_type: int
+        message_type: int,
+        directed_id: int 
     ):
         """
         Request text from THIS PERSON.
@@ -114,14 +125,22 @@ class Person():
         EXCLUDING this person.
         :param message_type: The type of message you want; 0=joining, 1=leaving, 2=normal convo.
         returns text: The text response from the GPT.
+        :param directed_id: Who this message should be directed at.
+
+        :returns reponse: The text response
+        :returns gpt_message_id: The ID number of the GPT message reponse
         """
-        if message_type == 0:
+        if message_type == 0: # Say hello because you have joined
             response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-JOINING>")
-        elif message_type == 1:
+        elif message_type == 1: # Say goodbye because you are leaving
             response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
-        elif message_type == 2:
+        elif message_type == 2: # Continue the convo in any way, non directed
             response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
-        elif message_type == 3:
+        elif message_type == 3: # Only one in the group, all alone
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
+        elif message_type == 4: # Interrupting a back-and-forth
+            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
+        elif message_type == 5: # A direct message aimed at someone in particular. TODO give the gpt who to direct to
             response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
         # Save the text to the interactions memory dict
         self.update_interactions_dict(person_id, group_id, people_in_group, response)
@@ -364,10 +383,10 @@ class Person():
         
         # Step 3: Delete all the messages starting from start_id
         for message_id in messages_to_delete:
-            self.delete_message2(message_id)
+            self.delete_message(message_id)
             time.sleep(0.1)  # Adding a small delay to avoid rate limiting
 
-    def delete_message2(self, message_id: str):
+    def delete_message(self, message_id: str):
         """ 
         Delete a specific message in a thread using HTTP DELETE request.
         
@@ -391,18 +410,3 @@ class Person():
         else:
             print(f"Failed to delete message {message_id}. Status code: {response.status_code}, Response: {response.text}")
 
-    def delete_message(self, message_id: str): # TODO test
-        """ 
-        Delete a specific message in a thread.
-        
-        :param message_id: The ID of the message to delete
-        """
-        response = self.client.beta.threads.messages.delete(
-            thread_id=self.thread.id,
-            message_id=message_id
-        )
-        
-        if response['deleted']:
-            print(f"Message {message_id} deleted successfully.")
-        else:
-            print(f"Failed to delete message {message_id}.")

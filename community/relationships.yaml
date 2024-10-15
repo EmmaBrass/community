@@ -1,0 +1,139 @@
+
+# TODO these could in the future be UNIQUE (have unique values and actions) for a given pair of people
+# These should be constructed by an LLM from a text block provided by user?
+# Will need them to be constructed because writing them out manually for ~600 pairwise interactions (if 25 people)
+# will be too time consuming!
+
+relationship_probabilities:
+
+  # Romantic relationship probabilities
+  romantic_relationship:
+    chance_to_start: 0.15  # 15% chance to start a romantic relationship
+    states:
+      meeting:
+        min_interactions: 2
+        max_interactions: 5
+        action_probabilities:
+          tell_beautiful: 0.30  # tell the other person they are beautiful
+        transitions:
+          dating:
+            probability: 0.80  # 80% chance to transition to 'dating'
+          no_relationship:
+            probability: 0.20  # 20% chance to transition to 'no relationship'
+
+      dating:
+        min_interactions: 6
+        max_interactions: 15
+        action_probabilities:
+          discuss_future: 0.20    # discuss the relationship future
+          text_argument: 0.20     # argument about texts with exes
+          anyone_like_you: 0.30   # tell the other person you have never met anyone as amazing as them
+        transitions:
+          committed:
+            probability: 0.70  # 70% chance to transition to 'committed'
+          breakup:
+            probability: 0.30  # 30% chance to transition to 'breakup'
+
+      committed:
+        min_interactions: 16
+        max_interactions: 30
+        action_probabilities:
+          discuss_living: 0.15    # discuss living together
+          duvet_argument: 0.2   # have an argument over duvet
+          accuse_kiss: 0.1      # accuse the other person of drunken kiss
+        transitions:
+          breakup:
+            probability: 0.50  # 50% chance to transition to 'breakup'
+          married:
+            probability: 0.50  # 50% chance to transition to 'married'
+
+      married:
+        min_interactions: 20
+        max_interactions: 50
+        action_probabilities:
+          bored_argument: 0.10  # tell the other person you are bored of them
+          discuss_kids: 0.20    # discuss whether to have kids... not sure we can with no bodies!
+        transitions:
+          divorced:
+            probability: 1.0  # 100% chance to transition to 'divorced'
+
+      breakup:
+        min_interactions: 2
+        max_interactions: 5
+        action_probabilities:
+          hate_you: 0.60  # tell the other person you hate them
+        transitions:
+          no_relationship:
+            probability: 0.20  # 80% chance to move to 'no_relationship'
+          exes:
+            probability: 0.80  # 20% chance to transition to 'exes'
+
+      divorced:
+        min_interactions: 5
+        max_interactions: 10
+        action_probabilities:
+          waasted_life: 0.20  # tell the other person they wasted your life
+        transitions:
+          no_relationship:
+            probability: 0.70  # 70% chance to transition to 'no_relationship'
+          exes:
+            probability: 0.30  # 30%
+
+      exes:
+        min_interactions: 5
+        max_interactions: 10
+        action_probabilities:
+          never_met: 0.20  # say you wished you never met them
+          miss_you: 0.4   # tell the other person you miss them
+        transitions:
+          no_relationship:
+            probability: 0.70  # 70% chance to transition to 'no_relationship'
+          exes:
+            probability: 0.30  # 30%
+
+
+  # Friendship relationship probabilities
+  friendship_relationship:
+    chance_to_start: 0.40  # 40% chance to start a friendship
+    long_lost_trigger_duration: 100  # If no interaction for 100 interactions, they become 'long_lost'
+    states:
+      new_friends:
+        min_interactions: 2
+        max_interactions: 5
+        action_probabilities:
+          have_coffee: 0.10  # 10% chance to have coffee together
+        transitions:
+          getting_on:
+            probability: 1  # 80% chance to transition to 'getting_on'
+
+      getting_on:
+        min_interactions: 6
+        max_interactions: 20
+        action_probabilities:
+          gossip: 0.04  # gossip about others
+        transitions:
+          long_friends:
+            probability: 0.70  # 70% chance to transition to 'long_friends'
+          argument:
+            probability: 0.30  # 30% chance to transition to 'argument'
+
+      argument:
+        min_interactions: 2
+        max_interactions: 30
+        action_probabilities:
+          rude: 0.2   # accuse the other person of being rude
+        transitions:
+          getting_on:
+            probability: 0.90  # 50% chance to become long-lost friends
+          argument:
+            probability: 0.10  # stay in an argument
+
+      long_friends:
+        min_interactions: 21
+        max_interactions: 50
+        action_probabilities:
+          grateful: 0.06  # tell other person grateful for the friendship
+          how_long: 0.20  # ask how long thye have known each other
+        transitions:
+          argument:
+            probability: 1  # have an argument

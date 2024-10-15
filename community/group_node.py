@@ -1,22 +1,4 @@
 
-# Proxy group node
-# 
-# Subscribe to pi_person_updates topic
-# Subscribe to pi_speech_complete topic
-# 
-# Publish to person_text_request topic
-
-# The group node will orchestrate requests for the people in a group to speech.
-# Publish the request and then only send through the next request once the previous one is complete.
-# Each text request will have an ID, consisting of the group number and a message ID
-# E.g. 5_12 (group 5, message 12)
-# This should be included in the message sent from the pi to the pi_speech_complete topic to update when that message is spoken
-
-
-# Subscribe to faces_info topic
-# Keep track of what system state we are in
-# Publish state to system_state topic
-
 import rclpy
 from rclpy.node import Node
 
@@ -35,6 +17,8 @@ import community.configuration as config
 
 import cv2, math, time, logging, pickle, random
 import numpy as np
+
+from community.group_convo_manager import GroupConvoManager
 
 
 class GroupNode(Node):
@@ -60,8 +44,6 @@ class GroupNode(Node):
         self.last_speech_completed = True
         # Variable for if last person gpt text request has been recieved
         self.last_text_recieved = True
-        # ID of the last person who spoke (so one person doesn't keep speaking repeatedly)
-        self.last_speaker = None
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
@@ -71,8 +53,15 @@ class GroupNode(Node):
         # Seq for receiving group info
         self.group_info_seq = -1
 
-        # List of text from person GPTs
+        # List of text from person GPTs, things TO SPEAK in FUTURE
         self.speech_list = []
+        # List of text that HAS BEEN spoken by the RPis
+        self.spoken_list = []
+
+        # Initialise GroupConvoManager object
+        self.group_convo_manager = GroupConvoManager()
+
+        # TODO add RelationshipAction service call
 
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
@@ -123,7 +112,6 @@ class GroupNode(Node):
                             self.publish_delete_gpt_message_id()
                             self.speech_list = []
                             self.last_text_recieved = True
-                            #TODO here call function to find unique person_id message to the right of the last spoken id and publish new message type :)
                             # Add one to text_seq if the speech_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
@@ -188,7 +176,8 @@ class GroupNode(Node):
                 'people_in_group': msg.people_in_group,
                 'text' : msg.text,
                 'gpt_message_id' : msg.gpt_message_id
-                })
+                'directed_id' : msg.directed_id
+            })
             self.last_text_recieved = True
             self.text_seq += 1
 
@@ -199,6 +188,15 @@ class GroupNode(Node):
         if msg.seq == self.speech_seq and msg.group_id == self.group_id:
             self.get_logger().info('In pi_speech_complete_callback')
             if msg.complete == True:
+                self.spoken_list.append({
+                    'person_id' : msg.person_id,
+                    'pi_id' : msg.pi_id,
+                    'group_id' : msg.group_id,
+                    'people_in_group': msg.people_in_group,
+                    'text' : msg.text,
+                    'gpt_message_id' : msg.gpt_message_id
+                    'directed_id' : msg.directed_id
+                })
                 self.last_speech_completed = True
                 self.speech_seq += 1
 
@@ -208,6 +206,7 @@ class GroupNode(Node):
         If yes, request it.
         """
         # Check if new speech required (if last person's speech has been spoken).
+        # Send a request to the Pi to SPEAK.
         if self.last_speech_completed == True and len(self.speech_list) != 0:
             self.get_logger().info('PUBLISHING SPEECH')
             # Use the FIRST item in speech_list
@@ -225,36 +224,39 @@ class GroupNode(Node):
                 msg.people_in_group = text_dict['people_in_group']
                 msg.text = text_dict['text']
                 msg.gpt_message_id = text_dict['gpt_message_id']
+                msg.directed_id = text_dict['directed_id']
                 for i in range(5):
                     self.pi_speech_request_publisher.publish(msg)
                 self.last_speech_completed = False
+
         # If last text was recevied or the group members have just been changed
+        # Send a a request to a person for TEXT
         # TODO ever a case where we send a person too many text requests?
-        if self.last_text_recieved == True and len(self.group_members) > 0:
+        if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speech_list) < config.MAX_SPEECH_LIST_LEN:
             self.get_logger().info('here1')
-            # If not the very beginning of the run when noone has been put in the group yet.#
-            if len(self.group_members) == 1: # If only one person in group; talk to themselves!
-                self.get_logger().info('here2')
-                person_id = self.group_members[0]
-                msg = PersonTextRequest()
-                msg.seq = self.text_seq
-                msg.person_id = person_id
-                msg.group_id = self.group_id
-                msg.message_type = 3 # TODO implement in person_node and person class (talking to self)
+            msg = PersonTextRequest()
+            msg.seq = self.text_seq
+            msg.group_id = self.group_id
+            if len(self.speech_list) != 0:
+                # Get last_speaker and last_message_directed from speech list
+                last_item = self.speech_list[-1]  # Get the last item in the list
+                last_speaker = last_item['person_id']
+                last_message_directed = last_item['directed_id']
+            elif len(self.spoken_list) != 0:
+                # Group has reset in some way - get from spoken list.
+                last_item = self.spoken_list[-1]  # Get the last item in the list
+                last_speaker = last_item['person_id']
+                last_message_directed = last_item['directed_id']
             else:
-                # Filter the group members to exclude last speaker
-                self.get_logger().info('here4')
-                filtered_members = [item for item in self.group_members if item != self.last_speaker]
-                self.get_logger().info(str(filtered_members))
-                # Choose at random from remaining members
-                person_id = random.choice(filtered_members)
-                self.get_logger().info(str(person_id))
-                self.last_speaker = person_id
-                msg = PersonTextRequest()
-                msg.seq = self.text_seq
-                msg.person_id = person_id
-                msg.group_id = self.group_id
-                msg.message_type = 2
+                last_speaker = 0
+                last_message_directed = 0
+            msg.person_id, msg.message_type, msg.directed_id = self.group_convo_manager.get_next(self.group_members, last_speaker, last_message_directed)
+            # TODO call relationship manager here !
+            # Based on who is going to speak next, we can tick forward relationships by one.
+            # Then the next relationship state can affect what is said next.  
+            # Also TODO rewinding to ticks in the relationship manager... current relationship tick will need to be stored here as well.
+            # Note if the relationship manager returns an action... the next to speak should NOT do an action so there is a 
+            # chance to hear a response to the action.  
             for i in range(5):
                 self.person_text_request_publisher.publish(msg)
             self.last_text_recieved = False

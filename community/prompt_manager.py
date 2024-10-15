@@ -1,0 +1,78 @@
+
+
+class PromptManager():
+    """
+    Takes output from relationship manager.
+    Message type as required by group convo manager.
+    Craft the prompt specificiations from this information.
+    """
+    
+    def __init__(self):
+        pass
+
+    def to_speak(self):
+        """
+        This person has been asked to speak.
+        Take stock of existing relationships.
+        Check for relationship CHANGES since the last time this person spoke.  THESE will be worth commenting on.
+        Check if there is a command to mention an event from the event timeline (should be passed an event id in the ROS msg).
+        Craft the prompt specificiations from this information.
+        """
+
+    def other_speaks(self):
+        """
+        Given information about another person in the group speaking.
+        Check if directed at this person.
+        Update relationships as necessary based on this.
+        Updates will be based on relationship TIMELINES.
+        E.g. a friendship or romantic relationship lasts for x interactions.
+        So need to keeo track of how many interactions are happening.  
+        """
+
+    # Need like set formats for relationship types - maybe classes for these?  and state machines for these that get ticked through.  
+    # A TICK = an interaction !!! So for each interaction that this class sees, we will ask the state machine for that relationship to tick...
+    # hmmm no but state machine needs to be shared somehow... accessible by the people managers of both classes.  
+
+    # given the speech type from the groupconvomanager, 
+    # decide what to say
+    # update relationships from here
+    # Decide HOW a relationship is going to change, potentially based on num interactions in past.
+    # That change happens kind of DURING this turn and directly affect what insturctions we give the LLM.
+
+    #e.g. CHECK on all relationships with other gorup members and where they are at, check what action require dnext with any of them.
+    # check relationship.txt files, make some decision what to do based on the states of all those, update the .txt file, tell the LLM to comment on
+    # this action as appropriate.  
+    # Here is the engine for a person to make a decision what to sa next based on what was just said to them and what they want to do netx in their relationships.
+
+    # options: 
+    # Simple comment on existing topic - let the LLM say someting generic
+
+    # Comment on existing topic wih some input from own personality and interests
+
+    # A relationship update with the person who just spoke, comment is based on that.
+        # Maybe speeches can also have 'TYPES' - like a job offer, a recruitment drive, relationship proposal, friendship proposal, relationship break-up etc.
+        # I think yes to this.  This is passed through, followed by LLM, but also kept as a rigid data for a person to update their relationship txt files and 
+        # then decide how to respond...
+    #Hmmm or no, could also do a SEARCH for relationship updates with others.  e.g. the person who just spoke might also have just updated
+    # their relationship, and that needs to be taken into account... 
+    # Relationships could have like a 'last move' flag?  So the last person to make a directed comment between them is saved
+    # and then with this comment type, would only be done with relationships where it is this person's turn.
+
+    # Comment based on external event from event config file.
+
+
+
+    # messages should also be sent out with a reponse_priority variable...
+    # would be weird if a big event happened and then a person makes one comment on it and then the rest of the group just ignores
+    # and moves on to something else.
+
+
+    # This will be queried when someone else speaks to the person, AND right before the person is asked to speak.
+    # Is a kind of model of what mood that person is in.
+    # Also will access and update txt files with the information about the RELATIONSHIP this person has with all other people.
+
+    def check_relationships(self):
+        """
+        Check all existing relationships and flag those where it is 
+        this person's turn to speak.
+        """

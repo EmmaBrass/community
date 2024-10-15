@@ -1,0 +1,36 @@
+
+########## For configuring events that will affect the narrative over time ##########
+
+# Events have: times, urgengies
+# Time = when it happens
+# Urgency = how likely a person is to talk about it (out of 100)
+
+# TODO time management... some record in launch file of start time.  Then compared to current tome and the timestamps in here.
+
+events:
+  - event: "SpaceX got their first person to land on the moon"
+    id: 1
+    timestamp:
+      hours: 0
+      minutes: 7
+      seconds: 0
+    urgency: 70
+    groups_discussed: []
+
+  - event: "There was a quadruple rainbow over London yesterday"
+    id: 2
+    timestamp:
+      hours: 0
+      minutes: 25
+      seconds: 0
+    urgency: 25
+    groups_discussed: []
+
+  - event: "The sky has turned red"
+    id: 3
+    timestamp:
+      hours: 0
+      minutes: 10
+      seconds: 0
+    urgency: 95
+    groups_discussed: []

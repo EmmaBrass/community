@@ -15,7 +15,7 @@ from community_interfaces.msg import (
     DeleteGptMessageId
 )
 import community.configuration as config
-from community.person import Person
+from community.person import PersonLLM
 
 import cv2, math, time, logging, pickle
 import numpy as np
@@ -31,19 +31,24 @@ class PersonNode(Node):
         self.declare_parameter('person_id', 0)
         self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
 
-        # Make person object using person attributes from config file
-        self.person = Person(
+        # Load the YAML file
+        with open('people.yaml', 'r') as file: #TODO check yaml path
+            person_info_dict = yaml.safe_load(file)
+
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = person_info_dict.get(self.person_id, {})
+        self.person = PersonLLM(
             person_id = self.person_id,
-            name = config.PERSON_INFO_DICT.get(self.person_id, {}).get('name', "Person not found."), 
-            gender = config.PERSON_INFO_DICT.get(self.person_id, {}).get('gender', "Person not found."), 
-            age = config.PERSON_INFO_DICT.get(self.person_id, {}).get('age', "Person not found."), 
-            openness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('openness', "Person not found."),  
-            conscientiousness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('conscientiousness', "Person not found."), 
-            neuroticism = config.PERSON_INFO_DICT.get(self.person_id, {}).get('neuroticism', "Person not found."), 
-            agreeableness = config.PERSON_INFO_DICT.get(self.person_id, {}).get('agreeableness', "Person not found."), 
-            extraversion = config.PERSON_INFO_DICT.get(self.person_id, {}).get('extraversion', "Person not found."), 
-            history = config.PERSON_INFO_DICT.get(self.person_id, {}).get('history', "Person not found."), 
-            relationships = config.PERSON_INFO_DICT.get(self.person_id, {}).get('relationships', "Person not found."), 
+            name = person_data.get('name', "Person not found."),
+            gender = person_data.get('gender', "Person not found."),
+            age = person_data.get('age', "Person not found."),
+            openness = person_data.get('openness', "Person not found."),
+            conscientiousness = person_data.get('conscientiousness', "Person not found."),
+            neuroticism = person_data.get('neuroticism', "Person not found."),
+            agreeableness = person_data.get('agreeableness', "Person not found."),
+            extraversion = person_data.get('extraversion', "Person not found."),
+            history = person_data.get('history', "Person not found."),
+            relationships = person_data.get('relationships', "Person not found."),
         )
 
         self.group_id = None # will change
@@ -113,18 +118,22 @@ class PersonNode(Node):
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
             self.get_logger().info('In person_text_request_callback')
+            # TODO RelationshipManager object called here.  
+            # TODO then prompt manager called!  To get extra parameters to pass to the person_llm
+            # Decide on the mood/topic/ other instructions for the GPT.
             text, gpt_message_id = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
                 self.group_members, # Members of the group EXCLUDING the person who will talk.
-                msg.message_type
+                msg.message_type,
+                msg.directed_id # TODO a double check they are actually in the group?
             )
             self.get_logger().info(f'Text from GPT!: {text}')
             self.get_logger().info(f'Message ID from GPT!: {gpt_message_id}')
-            self.person_text_result_pub(msg.seq, text, gpt_message_id)
+            self.person_text_result_pub(msg.seq, text, gpt_message_id, msg.directed_id)
             self.text_seq[msg.group_id-1] = msg.seq
 
-    def person_text_result_pub(self, seq, text, gpt_message_id):
+    def person_text_result_pub(self, seq, text, gpt_message_id, directed_id):
         """
         Publish text to the person_text_result topic.
 
@@ -140,9 +149,9 @@ class PersonNode(Node):
         msg.people_in_group = self.group_members
         msg.text = text
         msg.gpt_message_id = gpt_message_id
+        msg.directed_id = directed_id
         for i in range(5):
             self.person_text_result_publisher.publish(msg)
-
 
     def group_info_callback(self, msg):
         """
@@ -199,7 +208,8 @@ class PersonNode(Node):
                 msg.person_id, 
                 msg.group_id, 
                 msg.people_in_group, # This is everyone in the group EXCLUDING the speaker
-                msg.text
+                msg.text,
+                msg.directed_id # Who the message was directed at
             )
             self.speech_seq[msg.group_id-1] = msg.seq
 

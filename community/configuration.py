@@ -1,78 +1,22 @@
-PERSON_INFO_DICT = {
 
-    17223924946: {
-        'name': 'Jessica Rust', 
-        'voice_id': 'en_GB-alba-medium.onnx',
-        'gender' : 'female',
-        'age': 30,
-        'openness': 75,
-        'conscientiousness': 80,
-        'neuroticism': 40,
-        'agreeableness': 90,
-        'extraversion': 60,
-        'history': 'I love to garden.',
-        'relationships': {
-            'Steve Carrlec' : 'My husband. I love him to the ends of the earth and go crazy when I see him.', 
-            'John Bravo' : 'My ex-boyfriend.  I am secretly still in love with him as well and I want him to move back to the UK.',
-            'Margo Stewart' : 'My aunt. I am cold and distant towards her because she was mean to my mum.  I bring this up when we talk.'
-        }
-    },
-    
-    117227880: {
-        'name': 'Steve Carrlec', 
-        'voice_id': 'en_GB-alan-medium.onnx',
-        'gender' : 'male',
-        'age': 35,
-        'openness': 65,
-        'conscientiousness': 70,
-        'neuroticism': 90,
-        'agreeableness': 45,
-        'extraversion': 20,
-        'history': 'I am a physicist.',
-        'relationships': {
-            'Jessica Rust' : 'My wife.  I find her clingy and overbearing, but I am committed to the marriage.',
-            'John Bravo' : 'My wife\'s ex. I really do not like him and I get upset when I see him.',
-            'Margo Stewart' : 'I like her a lot, she has always been a wonderful friend to me.'
-        }
-    },
-    
-    5299113: {
-        'name': 'John Bravo', 
-        'voice_id': 'en_GB-northern_english_male-medium.onnx',
-        'gender' : 'male',
-        'age': 29,
-        'openness': 65,
-        'conscientiousness': 40,
-        'neuroticism': 30,
-        'agreeableness': 70,
-        'extraversion': 90,
-        'history': 'I recently moved to Australia and I love it here.',
-        'relationships': {
-            'Jessica Rust' : 'My ex girlfriend.  I think she still likes me but I am totally uninterested in her and I tell her this.',
-            'Steve Carrlec' : 'He is a nice guy and I want him to like me, but I can tell he doesn\'t like me.',
-            'Margo Stewart' : 'Never met her.'
-        }
-    },
-    
-    6024224946: {
-        'name': 'Margo Stewart', 
-        'voice_id': 'en_GB-jenny_dioco-medium.onnx',
-        'gender' : 'female',
-        'age': 53,
-        'openness': 90,
-        'conscientiousness': 65,
-        'neuroticism': 35,
-        'agreeableness': 80,
-        'extraversion': 55,
-        'history': 'I like art.',
-        'relationships': {
-            'Jessica Rust' : 'My niece.  She doesn\'t like me and I don\'t understand why.',
-            'Steve Carrlec' : 'I like him a lot, he is very friendly and we always have a good time.',
-            'John Bravo' : 'Never met him.'
-        }
-    }
+########## For configuring the people in the system, and system setup ##########
 
-}
+# TODO
+# A human writer should be able to give a long rambly text description of how people know each other and then
+# an LLM will take that rambly description and parse it into the relationship.txt files
+# Then a seperate rambly text file for events that happen during time
+
+# 1. Describe the existing relationships between all the personas in the system.
+# (This one used to initialise relationship xml/yaml files)
+# 2. Describe how relationships COULD evolve over the course of the narrative timeline.  Or like what would happen if two people meet.
+# (This one gets parsed into the events timeline ... ?)
+# (Details of what is likely to happen between two people IF they meet)
+# 3. Describe events that happen at given times that affect all conversations
+# (Details on what % of the population hear about the event.  Give specific details on timings.  
+
+
+
+
 
 
 NUM_GROUPS = 1
@@ -85,6 +29,18 @@ GROUP_PI_ASSIGNMENTS = {
 #     {'group_id': 3, 'pi_ids': [6]},
 #     {'group_id': 4, 'pi_ids': [7,8,9,10,11]}
 # ]
+
+# Max number of back and forth exchanges between just two people before someone else is asked to speak.
+BACK_AND_FORTH_MAX = 8
+
+# Probability that a back and forth exchange get interrupted before BACK_AND_FORTH_MAX
+INTERRUPT_PERCENT = 20
+
+# How often (as a percentage of the time) a person directs a message at someone else precise, rather than just an open comment
+DIRECT_PERCENT = 40
+
+# How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
+MAX_SPEECH_LIST_LEN = 6
 
 
 

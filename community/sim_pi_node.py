@@ -1,12 +1,11 @@
 
-# Subscribe to faces_info topic
-# Keep track of what system state we are in
-# Publish state to system_state topic
+### Simulated pi node for running simulation of one group on computer ###
+# Keyboard inputs for adding and removing people to pis #
 
-import board
-import busio
-from digitalio import DigitalInOut
-from adafruit_pn532.spi import PN532_SPI
+# Up to 9 heads in the group #
+# Press a number to access that head #
+# If there is already a card there, pressing the number will remove the card #
+# If there is no card there, then asked to select a person to add from a dropdown menu #
 
 import rclpy
 from rclpy.node import Node
@@ -20,11 +19,14 @@ from community_interfaces.msg import (
     PiPersonUpdates,
     PiSpeechComplete,
     PiSpeechRequest,
-    GroupInfo
+    GroupInfo,
+    SimPiPersonAssign
 )
 
+from pynput import keyboard
 
-class PiNode(Node):
+
+class SimPiNode(Node): #TODO
 
     def __init__(self):
         super().__init__('pi_node')
@@ -39,16 +41,6 @@ class PiNode(Node):
         # Seq list for receiving speech requests - one item for each group
         self.speech_seq = None
 
-        # SPI connection:
-        self.spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-        self.cs_pin = DigitalInOut(board.D22)
-        self.pn532 = PN532_SPI(self.spi, self.cs_pin, debug=False)
-        ic, ver, rev, support = self.pn532.firmware_version
-        self.get_logger().info("Found PN532 with firmware version: {0}.{1}".format(ver, rev))
-
-        # Configure PN532 to communicate with MiFare cards
-        self.pn532.SAM_configuration()
-
         # Initialise publishers
         self.pi_person_updates_publisher = self.create_publisher(PiPersonUpdates, 'pi_person_updates', 10)
         self.pi_speech_complete_publisher = self.create_publisher(PiSpeechComplete, 'pi_speech_complete', 10)
@@ -57,6 +49,12 @@ class PiNode(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
 
         # Initialise subscribers
+        self.sim_pi_person_assign_subscription = self.create_subscription(
+            SimPiPersonAssign,
+            'sim_pi_person_assign', 
+            self.sim_pi_person_assign_callback, 
+            10
+        )
         self.pi_speech_request_subscription = self.create_subscription(
             PiSpeechRequest,
             'pi_speech_request', 
@@ -71,6 +69,13 @@ class PiNode(Node):
         )
         # Prevent unused variable warnings
         self.pi_speech_request_subscription 
+
+    def sim_pi_person_assign_callback(self):
+        """
+        Update what person is on this simulated pi node.
+        """
+        if msg.pi_id == self.pi_id and msg.person_id != self.person_id:
+            self.person_id = msg.person_id
 
     def group_info_callback(self, msg):
         """
@@ -169,14 +174,14 @@ class PiNode(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    pi_node = PiNode()
+    sim_pi_node = SimPiNode()
 
-    rclpy.spin(pi_node)
+    rclpy.spin(sim_pi_node)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
     # when the garbage collector destroys the node object)
-    pi_node.destroy_node()
+    sim_pi_node.destroy_node()
     rclpy.shutdown()
 
 
