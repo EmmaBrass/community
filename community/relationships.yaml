@@ -4,11 +4,13 @@
 # Will need them to be constructed because writing them out manually for ~600 pairwise interactions (if 25 people)
 # will be too time consuming!
 
-relationship_probabilities:
+# TODO add in action descriptions !
+
+relationships:
 
   # Romantic relationship probabilities
   romantic_relationship:
-    chance_to_start: 0.15  # 15% chance to start a romantic relationship
+    chance_to_start: 0.15  # chance to start a romantic relationship
     states:
       meeting:
         min_interactions: 2
@@ -17,9 +19,9 @@ relationship_probabilities:
           tell_beautiful: 0.30  # tell the other person they are beautiful
         transitions:
           dating:
-            probability: 0.80  # 80% chance to transition to 'dating'
+            probability: 0.80  # chance to transition to 'dating'
           no_relationship:
-            probability: 0.20  # 20% chance to transition to 'no relationship'
+            probability: 0.20  # chance to transition to 'no relationship'
 
       dating:
         min_interactions: 6
@@ -30,9 +32,9 @@ relationship_probabilities:
           anyone_like_you: 0.30   # tell the other person you have never met anyone as amazing as them
         transitions:
           committed:
-            probability: 0.70  # 70% chance to transition to 'committed'
+            probability: 0.70  # chance to transition to 'committed'
           breakup:
-            probability: 0.30  # 30% chance to transition to 'breakup'
+            probability: 0.30  # cchance to transition to 'breakup'
 
       committed:
         min_interactions: 16
@@ -43,9 +45,9 @@ relationship_probabilities:
           accuse_kiss: 0.1      # accuse the other person of drunken kiss
         transitions:
           breakup:
-            probability: 0.50  # 50% chance to transition to 'breakup'
+            probability: 0.50  # chance to transition to 'breakup'
           married:
-            probability: 0.50  # 50% chance to transition to 'married'
+            probability: 0.50  # chance to transition to 'married'
 
       married:
         min_interactions: 20
@@ -54,8 +56,8 @@ relationship_probabilities:
           bored_argument: 0.10  # tell the other person you are bored of them
           discuss_kids: 0.20    # discuss whether to have kids... not sure we can with no bodies!
         transitions:
-          divorced:
-            probability: 1.0  # 100% chance to transition to 'divorced'
+          divorcing:
+            probability: 1.0  # chance to transition to 'divorcing'
 
       breakup:
         min_interactions: 2
@@ -68,7 +70,7 @@ relationship_probabilities:
           exes:
             probability: 0.80  # 20% chance to transition to 'exes'
 
-      divorced:
+      divorcing:
         min_interactions: 5
         max_interactions: 10
         action_probabilities:
@@ -113,9 +115,11 @@ relationship_probabilities:
           gossip: 0.04  # gossip about others
         transitions:
           long_friends:
-            probability: 0.70  # 70% chance to transition to 'long_friends'
+            probability: 0.5  # 70% chance to transition to 'long_friends'
           argument:
-            probability: 0.30  # 30% chance to transition to 'argument'
+            probability: 0.3  # 30% chance to transition to 'argument'
+          no_relationship:
+            probability: 0.2
 
       argument:
         min_interactions: 2
@@ -124,9 +128,9 @@ relationship_probabilities:
           rude: 0.2   # accuse the other person of being rude
         transitions:
           getting_on:
-            probability: 0.90  # 50% chance to become long-lost friends
+            probability: 0.9  # 50% chance to become long-lost friends
           argument:
-            probability: 0.10  # stay in an argument
+            probability: 0.1  # stay in an argument
 
       long_friends:
         min_interactions: 21

@@ -3,7 +3,7 @@ from transitions import Machine
 import yaml
 
 import community.configuration as config
-
+from community.relationships_state_machine import RelationshipMachine
 
 class RelationshipManager:
     def __init__(self):
@@ -12,8 +12,8 @@ class RelationshipManager:
         self.history = {}  # This will store all tick states by ID and group
 
         # Load the YAML file
-        with open('path_to_people_yaml.yaml', 'r') as file:
-            people_data = yaml.safe_load(file)
+        with open('relationships.yaml', 'r') as file:
+            self.relationships_yaml = yaml.safe_load(file)
         # Extract person IDs
         self.person_ids = list(people_data['people'].keys())
 
@@ -33,13 +33,7 @@ class RelationshipManager:
         # Initialize the relationships matrix with fields: 'state_machine', 'interactions_left', 'action'
         for i in range(num_people):
             for j in range(i + 1, num_people):
-                relationship_data = {
-                    'state': None,  # Initially no state machine
-                    'interactions_done_in_state': None,
-                    'interactions_left_for_state': None,  # Initially no interactions left
-                    'action': None  # Initially no action
-                    'num_interactions_for_action': None # How many interactions based on that action (clear action after 2 interactions)
-                }
+                relationship_machine = None  # A state machine in a certain state that can be queried
                 # Store the same reference in both [i][j] and [j][i]
                 relationships_matrix[i][j] = relationship_data
                 relationships_matrix[j][i] = relationship_data
@@ -48,13 +42,11 @@ class RelationshipManager:
         person_index_1 = 0  # index of the first person in the list
         person_index_2 = 1  # index of the second person in the list
 
-        relationship = relationships_matrix[person_index_1][person_index_2]
+        relationship_machine = relationships_matrix[person_index_1][person_index_2]
         print(f"Initial relationship between person 1 and person 2: {relationship}")
 
         # Update the state machine, interactions left, and action for this relationship
-        relationship['state'] = 'dating'
-        relationship['interactions_left'] = 10
-        relationship['action'] = 'buy a puppy'
+        relationship_machine = 'dating'
 
         # Since both [i][j] and [j][i] point to the same object, the update applies to both
         print(f"Updated relationship between person 1 and person 2: {relationships_matrix[person_index_1][person_index_2]}")
@@ -62,7 +54,7 @@ class RelationshipManager:
 
     def create_tick_snapshot(self, group_id, group_members):
         """
-        Create a snapshot of relationships for a particular group_id.
+        Create a snapshot of relationship_machine for a particular group_id.
         Only stores relationships where both members are in the group_members list.
         """
         # Ensure history has an entry for the group_id
@@ -82,7 +74,7 @@ class RelationshipManager:
                     idx_a = self.person_ids.index(member_a)
                     idx_b = self.person_ids.index(member_b)
 
-                    # Store the relationship between member_a and member_b
+                    # Store the relationship machines between member_a and member_b
                     filtered_relationships[(member_a, member_b)] = self.relationships_matrix[idx_a][idx_b].copy()
 
         # Store the snapshot for this tick and group
@@ -96,7 +88,6 @@ class RelationshipManager:
         
         # Increment tick counter for this group
         self.tick_counter[group_id - 1] += 1
-
 
     def rewind_to_tick(self, group_id, group_members, tick_id):
         """
@@ -118,82 +109,89 @@ class RelationshipManager:
             
             print(f"Rewound relationships in group {group_id} to tick {tick_id}.")
             self.tick_counter[group_id - 1] = tick_id
+            return True
         else:
             print(f"Tick {tick_id} not found in history for group {group_id}.")
+            return False
 
-
-    def tick_get_relationship(self, person_a, person_b, group_members):
+    def tick_get_relationship(self, person_a, person_b, group_id, group_members):
         """
         Tick the relationship between two people on by one. 
-        Return the current state of the relationship.
+        Return a result with info about the state of the relationship and any actions.
         """
         # Get the index from the initial list of people in the config yaml file, for standardisation
         idx_a = self.person_ids.index(person_a)
         idx_b = self.person_ids.index(person_b)
 
-        # Should be no action when two people have just entered a new relationship state?
-        # An action is only used for 2 interactions? or like max 4? could define in 
-        # Hmmm no action should be only one interaction.  Something one person does.  The other's response is left to the LLM!
-
-        # stuff
+        relationship_machine = self.relationships_matrix[idx_a][idx_b]
+        # If no relationship, maybe start one
+        if relationship_machine == None:
+            state_machine = self.setup_relationship_machine()
+            self.relationships_matrix[idx_a][idx_b] = state_machine
+            self.relationships_matrix[idx_b][idx_a] = state_machine
+            result = {
+                'state_changed': True,
+                'from_state': None,
+                'to_state': state_machine.get_current_state(),
+                'action': None
+            }
+        else:
+            # Tick the existing state machine 
+            result = relationship_machine.tick()
+            if relationship_machine.get_current_state() == 'no_relationship':
+                # If state = 'no_relationship' then replace with None.
+                self.relationships_matrix[idx_a][idx_b] = None
+                self.relationships_matrix[idx_b][idx_a] = None
+            else:
+                self.relationships_matrix[idx_a][idx_b] = relationship_machine
+                self.relationships_matrix[idx_b][idx_a] = relationship_machine
+                
         self.create_tick_snapshot(self, group_id, group_members) # TODO tick snapshot should happen before or after the actual tick?
+        # Get current tick_id for this group
+        tick_id = self.tick_counter[group_id - 1]
 
+        return result, tick_id
 
+    def choose_relationship_type(self):
+        """ Decide which relationship type to enter based on 'chance_to_start' probabilities. """
+        config = self.relationships_yaml
+        
+        romantic_chance = config['relationship_probabilities']['romantic_relationship'].get('chance_to_start', 0)
+        friendship_chance = config['relationship_probabilities']['friendship_relationship'].get('chance_to_start', 0)
 
+        total_chance = romantic_chance + friendship_chance
+        if total_chance == 0:
+            return None  # No relationship should start
 
+        # Normalize chances and pick based on probabilities
+        pick = random.uniform(0, total_chance)
+        if pick <= romantic_chance:
+            return 'romantic_relationship'
+        else:
+            return 'friendship_relationship'
 
-#########################
+    def setup_relationship_machine(self):
+        """
+        See if a relationship will start and choose the type.
+        """
 
-    def start_relationship(self, person_a, person_b):
-        key = (person_a, person_b) if person_a < person_b else (person_b, person_a)
+        # Decide which relationship to enter based on the chances
+        chosen_relationship_type = self.choose_relationship_type()
+        
+        if chosen_relationship_type is None:
+            print("No relationship started based on the probabilities.")
+            return None
 
-        # Define the state machine for the relationship
-        states = ['meeting', 'getting_closer', 'committed', 'breakup']
-        machine = Machine(model=self, states=states, initial='meeting')
-        machine.add_transition('get_closer', 'meeting', 'getting_closer')
-        machine.add_transition('commit', 'getting_closer', 'committed')
-        machine.add_transition('break_up', 'committed', 'breakup')
+        # Create the state machine for the chosen relationship type
+        state_machine = RelationshipMachine(chosen_relationship_type)
+        
+        # Start at the initial state
+        initial_state = state_machine.get_current_state()
 
-        interactions_left = random.randint(5, 20)
-
-        # Store the relationship in the manager
-        self.relationships[key] = {
-            'state_machine': machine,
-            'interactions_left': interactions_left,
-            'action': None
-        }
-
-        print(f"Relationship started between {person_a} and {person_b}.")
-
-    def record_interaction(self, person_a, person_b):
-        key = (person_a, person_b) if person_a < person_b else (person_b, person_a)
-
-        relationship = self.relationships.get(key)
-        if relationship and relationship['state_machine'] and relationship['interactions_left'] > 0:
-            relationship['interactions_left'] -= 1
-            self.maybe_trigger_action(person_a, person_b)
-            if relationship['interactions_left'] <= 0:
-                self.end_relationship(person_a, person_b)
-        self.create_tick_snapshot()
-
-    def maybe_trigger_action(self, person_a, person_b):
-        key = (person_a, person_b) if person_a < person_b else (person_b, person_a)
-        relationship = self.relationships[key]
-
-        if relationship['state_machine']:
-            if relationship['state_machine'].state in ['getting_closer', 'committed']:
-                if random.random() < 0.05:
-                    relationship['action'] = 'buy a puppy'
-                    print(f"{person_a} and {person_b} bought a puppy!")
-                elif random.random() < 0.10:
-                    relationship['action'] = 'have an argument'
-                    print(f"{person_a} and {person_b} had an argument!")
-
-    def end_relationship(self, person_a, person_b):
-        key = (person_a, person_b) if person_a < person_b else (person_b, person_a)
-        relationship = self.relationships[key]
-
-        if relationship['state_machine']:
-            relationship['state_machine'].break_up()
-            print(f"Relationship between {person_a} and {person_b} has ended.")
-        self.create_tick_snapshot()
+        # If the state is 'no_relationship', replace the state machine with None
+        if initial_state == 'no_relationship':
+            state_machine = None
+        else:
+            # Otherwise, start the state and assign interaction count
+            state_machine.start_state(initial_state)
+        return state_machine
