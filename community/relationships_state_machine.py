@@ -54,6 +54,9 @@ class RelationshipMachine:
         self.interaction_bounds = self.get_interaction_bounds(relationship_type)
         self.actions = self.get_actions(relationship_type)
 
+        # Actions should be left for an interation (to allow response) before another happens
+        self.active_action = False
+
     def create_machine(self, model, relationship_type):
         """ Create the state machine based on the relationship configuration """
         states = list(self.relationship_config[relationship_type]['states'].keys())
@@ -96,7 +99,11 @@ class RelationshipMachine:
         return actions
 
     def start_state(self, state):
-        """ Set the number of interactions for the current state based on its bounds """
+        """ 
+        Reset any active actions.
+        Set the number of interactions for the current state based on its bounds. 
+        """
+        self.active_action = False
         bounds = self.interaction_bounds.get(state)
         if bounds:
             self.model.interactions_left = random.randint(bounds['min'], bounds['max'])
@@ -108,13 +115,15 @@ class RelationshipMachine:
     def check_for_action(self):
         """ Check if an action occurs based on the action probabilities for the current state """
         current_state = self.get_current_state()
-        if self.model.interactions_in_state > 2 and self.model.interactions_left > 1:  # Only check after 2 interactions in the state, and more than 1 interaction left
+        if self.model.interactions_in_state > 2 and self.model.interactions_left > 1 and self.active_action == False:  # Only check after 2 interactions in the state, and more than 1 interaction left
             actions = self.actions.get(current_state, {})
             if actions:
                 action = self.model.random_action(actions)
                 if action:
                     print(f"Action occurred: {action}")
+                    self.active_action = True
                     return action
+        self.active_action = False
         return None
 
     def tick(self):

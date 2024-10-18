@@ -22,11 +22,14 @@ class RelationshipManagerService(Node):
         """
         person_a = request.person_a
         person_b = request.person_b
-        group_id  request.group_id
+        group_id = request.group_id
         group_members = request.group_members
         result, tick_id = self.relationship_manager.tick_get_relationship(person_a, person_b, group_id, group_members) # state_changed, from, to, action
-        response.state = #TODO...
-        reponse.tick_id = tick_id
+        response.state_changed = bool(result['state_changed'])
+        response.from_state = str(result['from_state'])
+        response.to_state = str(result['to_state'])
+        response.action = str(result['action'])
+        response.tick_id = tick_id
         return response
 
     def rewind_relationship_callback(self, request, response):

@@ -2,7 +2,7 @@
 
 class PromptManager():
     """
-    Takes output from relationship manager.
+    Takes output from relationship manager (state_changed bool, from_state, to_state, action)
     Message type as required by group convo manager.
     Craft the prompt specificiations from this information.
     """
