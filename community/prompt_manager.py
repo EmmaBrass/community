@@ -1,4 +1,13 @@
+from enum import Enum
 
+class MessageType(Enum):
+    JOINING = 0 # Say hello because just joined a group
+    LEAVING = 1 # Say bye because leaving a group (likely won't be used...)
+    OPEN = 2 # Say whatever into the group
+    ALONE = 3 # A person alone in a group
+    INTERRUPT = 4 # A new person interrupting a back-and-forth
+    DIRECT = 5 # A direct message aimed at someone in particular
+    EVENT = 6 # Talk about some global event that has just happened.
 
 class PromptManager():
     """
@@ -10,7 +19,7 @@ class PromptManager():
     def __init__(self):
         pass
 
-    def get_relationship_prompt(sel, message_type: int, directed_id: int, state_changed: bool, from_state: str, to_state: str, action: str, ):
+    def get_relationship_prompt(sel, message_type: int, directed_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
         """
         This person has been asked to speak.
         Looks at requested message type.
@@ -24,9 +33,28 @@ class PromptManager():
         """
         # Maybe a prompt 
         
-        if 
-        prompt_details = 
+        if message_type == 0:
+            # respond to previous thing and say hello
+        
+        elif message_type == 1:
+            # respond to previous thing and say bye?
 
+        elif message_type == 2:
+            # just respond to previous thing for 2 sentences
+
+        elif message_type == 3:
+            # talk baout feeling alone
+
+        elif message_type == 4: 
+            # interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
+
+        elif message_type == 5:
+            # get name of person the message is directed at using directed_id
+            # check if state of the relationship has changed and comment on that
+            # check if any action to discuss and comment on that if so
+
+        elif message_type == 6:
+            # use event_id to get event description and urgency and discuss it.  
 
 
 

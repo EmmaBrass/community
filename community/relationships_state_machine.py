@@ -32,10 +32,11 @@ class RelationshipModel:
         """ Randomly determine if an action occurs based on action probabilities """
         rand = random.random()
         cumulative_prob = 0
-        for action, prob in actions.items():
+        for _, details in actions.items():
+            prob = details['probability']
             cumulative_prob += prob
             if rand < cumulative_prob:
-                return action
+                return details['description']  # Return the action description
         return None
 
 # RelationshipMachine class to handle machine creation and transitions
@@ -90,13 +91,12 @@ class RelationshipMachine:
                 'max': details['max_interactions']
             }
         return interaction_bounds
-
+    
     def get_actions(self, relationship_type):
-        """ Get the action probabilities for each state from the YAML config """
-        #TODO pretty sure this is wrong.  Doesn't extract the action names/descriptionsa
+        """ Get the action probabilities and descriptions for each state from the YAML config """
         actions = {}
         for state, details in self.relationship_config[relationship_type]['states'].items():
-            actions[state] = details.get('action_probabilities', {})
+            actions[state] = details.get('actions', {})  # Get the full action details (name, description, probability)
         return actions
 
     def start_state(self, state):
@@ -112,18 +112,18 @@ class RelationshipMachine:
             print(f"Entering state '{state}' with {self.model.interactions_left} interactions left.")
         else:
             print(f"No interaction bounds found for state '{state}'.")
-
+    
     def check_for_action(self):
         """ Check if an action occurs based on the action probabilities for the current state """
         current_state = self.get_current_state()
         if self.model.interactions_in_state > 2 and self.model.interactions_left > 1 and self.active_action == False:  # Only check after 2 interactions in the state, and more than 1 interaction left
             actions = self.actions.get(current_state, {})
             if actions:
-                action = self.model.random_action(actions)
-                if action:
-                    print(f"Action occurred: {action}")
+                action_description = self.model.random_action(actions)
+                if action_description:
+                    print(f"Action occurred: {action_description}")
                     self.active_action = True
-                    return action
+                    return action_description
         self.active_action = False
         return None
 
@@ -145,9 +145,9 @@ class RelationshipMachine:
         print(f"Interactions left in current state: {self.model.interactions_left}")
 
         # Check for action if applicable
-        action = self.check_for_action()
-        if action:
-            result['action'] = action
+        action_description = self.check_for_action()
+        if action_description:
+            result['action'] = action_description
 
         # If interactions in the current state are exhausted, move to the next state
         if self.model.interactions_left <= 0:

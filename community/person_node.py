@@ -123,17 +123,15 @@ class PersonNode(Node):
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
             self.get_logger().info('In person_text_request_callback')
-            prompt_details = self.prompt_manager(msg.state_changed, msg.from_state, msg.to_state, msg.action)
-
-            # TODO PromptManager object called here.  
+            prompt_details = self.prompt_manager(msg.message_type, msg.directed_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
+            # TODO a double check that the directed_to is actually in the group?
             # TODO then prompt manager called!  To get extra parameters to pass to the person_llm
             # Decide on the mood/topic/ other instructions for the GPT.
             text, gpt_message_id = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
                 self.group_members, # Members of the group EXCLUDING the person who will talk.
-                msg.message_type,
-                msg.directed_id # TODO a double check they are actually in the group?
+                prompt_details
             )
             self.get_logger().info(f'Text from GPT!: {text}')
             self.get_logger().info(f'Message ID from GPT!: {gpt_message_id}')
