@@ -1,6 +1,8 @@
 import community.configuration as config
 from enum import Enum
 
+import random
+
 class MessageType(Enum):
     JOINING = 0 # Say hello because just joined a group
     LEAVING = 1 # Say bye because leaving a group (likely won't be used...)
@@ -8,18 +10,19 @@ class MessageType(Enum):
     ALONE = 3 # A person alone in a group
     INTERRUPT = 4 # A new person interrupting a back-and-forth
     DIRECT = 5 # A direct message aimed at someone in particular
+    EVENT = 6 # Talk about some global event that has just happened.
 
 class GroupConvoManager():
     """
     Manages who speaks next in a conversation within a group.
     """
     # TODO add hello and goodbye (joining and leaving) message types into this class
-    # TODO global events are check here!  And then sent to person as an instruction.  Check events.yaml
+    # TODO global events are checked here!  And then sent to person as an instruction.  Check events.yaml
 
     def __init__(self):
         # Keep track of how long a convo has been back and forth between two people
         self.back_and_forth_counter = 0
-        # Keeo track of the order of who has spoken
+        # Keep track of the order of who has spoken
         speakers = []
 
     def get_next(self, group_members, last_speaker, last_message_directed=0):
@@ -38,8 +41,8 @@ class GroupConvoManager():
         if last_speaker != 0:
             self.speakers.append(last_speaker)
 
-        # directed_to is 0 unless changed later
-        direct_to = 0
+        # directed_to is 0 (noone) unless changed later
+        directed_id = 0
 
         if len(group_members) == 1:
             next_speaker = group_members[0]
@@ -51,7 +54,7 @@ class GroupConvoManager():
             filtered_members = [item for item in group_members if item != last_speaker]
             next_speaker = random.choice(filtered_members)
             filtered_members = [item for item in group_members if item != next_speaker]
-            direct_to = filtered_members[0] # Drect next message to the other person
+            directed_id = filtered_members[0] # Drect next message to the other person
             message_type = MessageType.DIRECT.value
             back_and_forth_counter = 0 # back and forth counter doesn't apply if only 2 people in the group
 
@@ -61,12 +64,11 @@ class GroupConvoManager():
                 # Noone has spoken yet - startup of the system
                 # Just choose someone random from existing members
                 next_speaker = random.choice(group_members)
-                # TODO reset speakers list based on self.spoken_list from above
             elif last_message_directed != 0 and back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
                 # Last message was directed, and next one will be too
                 next_speaker = last_message_directed # get the person who the last message was directed at
                 message_type = MessageType.DIRECT.value
-                direct_to = last_speaker # Resoond to the most recent speaker
+                directed_id = last_speaker # Resoond to the most recent speaker
                 if next_speaker == self.speakers[-2]:
                     back_and_forth_counter +=1
                 else:
@@ -90,13 +92,13 @@ class GroupConvoManager():
                     message_type = MessageType.DIRECT.value
                     # Direct at someone
                     filtered_members = [item for item in group_members if item != last_speaker and item != next_speaker]
-                    direct_to = random.choice(filtered_members)
+                    directed_id = random.choice(filtered_members)
                 else: 
                     message_type = MessageType.OPEN.value
                 back_and_forth_counter = 0
             else:
                 print("ERROR! In unexpected part of if/else statement.")
                 
-        return next_speaker, message_type, direct_to
+        return next_speaker, message_type, directed_id
 
             

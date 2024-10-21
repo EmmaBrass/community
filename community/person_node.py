@@ -15,10 +15,12 @@ from community_interfaces.msg import (
     DeleteGptMessageId
 )
 import community.configuration as config
-from community.person import PersonLLM
+from community.person_llm import PersonLLM
+from community.prompt_manager import PromptManager
 
 import cv2, math, time, logging, pickle
 import numpy as np
+import yaml
 
 
 class PersonNode(Node):
@@ -62,6 +64,9 @@ class PersonNode(Node):
         self.speech_seq = [-1]*config.NUM_GROUPS
         # Seq for deletie message id
         self.delete_seq = [-1]*config.NUM_GROUPS
+
+        # Initialise prompt manager
+        self.prompt_manager = PromptManager()
         
         # Initialise publishers
         self.person_text_result_publisher = self.create_publisher(
@@ -104,7 +109,7 @@ class PersonNode(Node):
         """
         Delete messages on the GPT thread including and after 
         the message with the ID in the given ROS msg.
-        """ # TODO add a seq to DeleteMessageId messages in msg and from group_node
+        """
         if msg.seq > self.delete_seq[msg.group_id-1] and msg.person_id == self.person_id:
             self.person.delete_messages_from_id(msg.gpt_message_id)
             self.get_logger().info("Successfully deleted unspoken gpt messages.")
@@ -118,7 +123,9 @@ class PersonNode(Node):
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
             self.get_logger().info('In person_text_request_callback')
-            # TODO RelationshipManager object called here.  
+            prompt_details = self.prompt_manager(msg.state_changed, msg.from_state, msg.to_state, msg.action)
+
+            # TODO PromptManager object called here.  
             # TODO then prompt manager called!  To get extra parameters to pass to the person_llm
             # Decide on the mood/topic/ other instructions for the GPT.
             text, gpt_message_id = self.person.person_speaks(

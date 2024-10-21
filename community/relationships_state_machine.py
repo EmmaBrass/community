@@ -93,6 +93,7 @@ class RelationshipMachine:
 
     def get_actions(self, relationship_type):
         """ Get the action probabilities for each state from the YAML config """
+        #TODO pretty sure this is wrong.  Doesn't extract the action names/descriptionsa
         actions = {}
         for state, details in self.relationship_config[relationship_type]['states'].items():
             actions[state] = details.get('action_probabilities', {})

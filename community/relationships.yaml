@@ -4,7 +4,6 @@
 # Will need them to be constructed because writing them out manually for ~600 pairwise interactions (if 25 people)
 # will be too time consuming!
 
-# TODO add in action descriptions !
 
 relationships:
 
@@ -15,8 +14,10 @@ relationships:
       meeting:
         min_interactions: 2
         max_interactions: 5
-        action_probabilities:
-          tell_beautiful: 0.30  # tell the other person they are beautiful
+        actions:
+          tell_beautiful: 
+            description: "You are so beautiful."
+            probability: 0.40  # tell the other person they are beautiful
         transitions:
           dating:
             probability: 0.80  # chance to transition to 'dating'
@@ -26,23 +27,35 @@ relationships:
       dating:
         min_interactions: 6
         max_interactions: 15
-        action_probabilities:
-          discuss_future: 0.20    # discuss the relationship future
-          text_argument: 0.20     # argument about texts with exes
-          anyone_like_you: 0.30   # tell the other person you have never met anyone as amazing as them
+        actions:
+          discuss_future: 
+            description: "Where is this relationship headed?  What is our future?"
+            probability: 0.20   
+          text_argument: 
+            description: "I think you have been texting your ex and I think that's really inappropriate."
+            probability: 0.20    
+          anyone_like_you: 
+            description: "I have never met anyone as amazing as you."
+            probability: 0.30   
         transitions:
           committed:
             probability: 0.70  # chance to transition to 'committed'
           breakup:
-            probability: 0.30  # cchance to transition to 'breakup'
+            probability: 0.30  # chance to transition to 'breakup'
 
       committed:
         min_interactions: 16
         max_interactions: 30
-        action_probabilities:
-          discuss_living: 0.15    # discuss living together
-          duvet_argument: 0.2   # have an argument over duvet
-          accuse_kiss: 0.1      # accuse the other person of drunken kiss
+        actions:
+          discuss_living:
+            description: "Maybe we should move in together now that our relationship is serious?"
+            probability: 0.15    
+          duvet_argument: 
+            description: "You always use way too much of the duvet and it's really inconsiderate."
+            probability: 0.2   
+          accuse_kiss: 
+            description: "I know you kissed our friend the other night when you were drunk, don't deny it."
+            probability: 0.1     
         transitions:
           breakup:
             probability: 0.50  # chance to transition to 'breakup'
@@ -52,9 +65,13 @@ relationships:
       married:
         min_interactions: 20
         max_interactions: 50
-        action_probabilities:
-          bored_argument: 0.10  # tell the other person you are bored of them
-          discuss_kids: 0.20    # discuss whether to have kids... not sure we can with no bodies!
+        actions:
+          bored_argument: 
+            description: "To be honest, I'm getting a bit bored of you, sorry."
+            probability: 0.10  
+          discuss_kids: 
+            description : "Do you think we should have kids together one day?  I'm not sure how it would be possible though since we don't have bodies."
+            probability: 0.20    
         transitions:
           divorcing:
             probability: 1.0  # chance to transition to 'divorcing'
@@ -62,8 +79,10 @@ relationships:
       breakup:
         min_interactions: 2
         max_interactions: 5
-        action_probabilities:
-          hate_you: 0.60  # tell the other person you hate them
+        actions:
+          hate_you: 
+            description: "I hate you so much, you are an awful person."
+            probability: 0.60  
         transitions:
           no_relationship:
             probability: 0.20  # 80% chance to move to 'no_relationship'
@@ -73,8 +92,10 @@ relationships:
       divorcing:
         min_interactions: 5
         max_interactions: 10
-        action_probabilities:
-          waasted_life: 0.20  # tell the other person they wasted your life
+        actions:
+          wasted_life: 
+            description: "I feel like the time I have spent with you has been a waste of my life."
+            probability: 0.20  
         transitions:
           no_relationship:
             probability: 0.70  # 70% chance to transition to 'no_relationship'
@@ -84,9 +105,13 @@ relationships:
       exes:
         min_interactions: 5
         max_interactions: 10
-        action_probabilities:
-          never_met: 0.20  # say you wished you never met them
-          miss_you: 0.4   # tell the other person you miss them
+        actions:
+          never_met: 
+            description: "I wish I never met you."
+            probability: 0.20  
+          miss_you: 
+            description: "I miss you.  I miss seeing you every day."  
+            probability: 0.30
         transitions:
           no_relationship:
             probability: 0.70  # 70% chance to transition to 'no_relationship'
@@ -102,8 +127,10 @@ relationships:
       new_friends:
         min_interactions: 2
         max_interactions: 5
-        action_probabilities:
-          have_coffee: 0.10  # 10% chance to have coffee together
+        actions:
+          have_coffee: 
+            description: "We should get coffee together some time.  It might be hard with no stomach though."
+            probability: 0.10 
         transitions:
           getting_on:
             probability: 1  # 80% chance to transition to 'getting_on'
@@ -111,8 +138,10 @@ relationships:
       getting_on:
         min_interactions: 6
         max_interactions: 20
-        action_probabilities:
-          gossip: 0.04  # gossip about others
+        actions:
+          gossip: 
+            description: "Oh tell me the most recent gossip.  I love gossip."
+            probability: 0.04 
         transitions:
           long_friends:
             probability: 0.5  # 70% chance to transition to 'long_friends'
@@ -124,8 +153,10 @@ relationships:
       argument:
         min_interactions: 2
         max_interactions: 30
-        action_probabilities:
-          rude: 0.2   # accuse the other person of being rude
+        actions:
+          rude: 
+            description: "To be honest I have come to the conclusion that you are a rude person, and I don't like it."
+            probability: 0.2   # accuse the other person of being rude
         transitions:
           getting_on:
             probability: 0.9  # 50% chance to become long-lost friends
@@ -135,9 +166,13 @@ relationships:
       long_friends:
         min_interactions: 21
         max_interactions: 50
-        action_probabilities:
-          grateful: 0.06  # tell other person grateful for the friendship
-          how_long: 0.20  # ask how long thye have known each other
+        actions:
+          grateful: 
+            description: "I am so grateful to have you as a friend."
+            probability: 0.10
+          how_long: 
+            description: "Wow, how long have we known each other?  It feels like forever."
+            probability: 0.20
         transitions:
           argument:
             probability: 1  # have an argument

@@ -40,7 +40,7 @@ INTERRUPT_PERCENT = 20
 DIRECT_PERCENT = 40
 
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
-MAX_SPEECH_LIST_LEN = 6
+MAX_SPEAK_LIST_LEN = 6
 
 
 

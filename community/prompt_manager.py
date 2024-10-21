@@ -10,24 +10,25 @@ class PromptManager():
     def __init__(self):
         pass
 
-    def to_speak(self):
+    def get_relationship_prompt(sel, message_type: int, directed_id: int, state_changed: bool, from_state: str, to_state: str, action: str, ):
         """
         This person has been asked to speak.
+        Looks at requested message type.
+        Looks at if the speech should be directed at anyone.
         Take stock of existing relationships.
         Check for relationship CHANGES since the last time this person spoke.  THESE will be worth commenting on.
         Check if there is a command to mention an event from the event timeline (should be passed an event id in the ROS msg).
         Craft the prompt specificiations from this information.
-        """
 
-    def other_speaks(self):
+        :returns prompt_details: A string to be passed to the LLM to help guide its output text.
         """
-        Given information about another person in the group speaking.
-        Check if directed at this person.
-        Update relationships as necessary based on this.
-        Updates will be based on relationship TIMELINES.
-        E.g. a friendship or romantic relationship lasts for x interactions.
-        So need to keeo track of how many interactions are happening.  
-        """
+        # Maybe a prompt 
+        
+        if 
+        prompt_details = 
+
+
+
 
     # Need like set formats for relationship types - maybe classes for these?  and state machines for these that get ticked through.  
     # A TICK = an interaction !!! So for each interaction that this class sees, we will ask the state machine for that relationship to tick...

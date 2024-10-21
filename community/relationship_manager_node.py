@@ -36,7 +36,7 @@ class RelationshipManagerService(Node):
         """
         Rewind all relationships for a group back to a tick_id.
         """
-        group_id  request.group_id
+        group_id = request.group_id
         tick_id = request.tick_id
         group_members = request.group_members
         response.success = self.relationship_manager.rewind_to_tick(group_id, group_members, tick_id)

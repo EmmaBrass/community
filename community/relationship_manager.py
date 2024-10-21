@@ -35,15 +35,15 @@ class RelationshipManager:
             for j in range(i + 1, num_people):
                 relationship_machine = None  # A state machine in a certain state that can be queried
                 # Store the same reference in both [i][j] and [j][i]
-                relationships_matrix[i][j] = relationship_data
-                relationships_matrix[j][i] = relationship_data
+                relationships_matrix[i][j] = None
+                relationships_matrix[j][i] = None
 
         # Example: access a relationship between person 1 and person 2
         person_index_1 = 0  # index of the first person in the list
         person_index_2 = 1  # index of the second person in the list
 
         relationship_machine = relationships_matrix[person_index_1][person_index_2]
-        print(f"Initial relationship between person 1 and person 2: {relationship}")
+        print(f"Initial relationship machine between person 1 and person 2: {relationship_machine}")
 
         # Update the state machine, interactions left, and action for this relationship
         relationship_machine = 'dating'

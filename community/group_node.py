@@ -62,14 +62,12 @@ class GroupNode(Node):
         self.relationships_tick_spoken = 0
 
         # List of text from person GPTs, things TO SPEAK in FUTURE
-        self.speech_list = []
+        self.speak_list = []
         # List of text that HAS BEEN spoken by the RPis
         self.spoken_list = []
 
         # Initialise GroupConvoManager object
         self.group_convo_manager = GroupConvoManager()
-
-        # TODO add RelationshipAction service call
 
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
@@ -114,7 +112,6 @@ class GroupNode(Node):
         
         while not self.rewind_relationship_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('rewind_relationship service not available, waiting...')
-    
 
     def group_info_callback(self, msg):
         """
@@ -132,9 +129,9 @@ class GroupNode(Node):
                             self.get_logger().info(f'self.group_members {self.group_members}')
                             # Clear speech list as group makeup has changed
                             self.delete_gpt_message_id_and_rewind_relationship_tick()
-                            self.speech_list = []
+                            self.speak_list = []
                             self.last_text_recieved = True
-                            # Add one to text_seq if the speech_list has been reset so that 
+                            # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
                 # Check for new person added, if there >0 members of the group in the message
@@ -146,27 +143,27 @@ class GroupNode(Node):
                             self.get_logger().info(f'self.group_members {self.group_members}')
                             # Clear speech list as group makeup has changed
                             self.delete_gpt_message_id_and_rewind_relationship_tick()
-                            self.speech_list = []
+                            self.speak_list = []
                             self.last_text_recieved = True
-                            # Add one to text_seq if the speech_list has been reset so that 
+                            # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
             self.group_info_seq = msg.seq
 
     def delete_gpt_message_id_and_rewind_relationship_tick(self):
         """
-        Extract gpt_message_ids for each new instance of a person_id in self.speech_list.
+        Extract gpt_message_ids for each new instance of a person_id in self.speak_list.
         Publish a message to delete these gpt messages.
         Ask the RelationshipManagr to rewind to the last spoken tick.
         """
-        # Only do anything if there are some unpublished messages in speech_list
-        if len(self.speech_list) > 0:
+        # Only do anything if there are some unpublished messages in speak_list
+        if len(self.speak_list) > 0:
             
             # Collect unique person_id entries from the right side of the list
             unique_person_ids = set()  # To store the unique person_ids
             result = []  # To store the results (person_id and gpt_message_id)
 
-            for entry in self.speech_list:
+            for entry in self.speak_list:
                 person_id = entry['person_id']
                 if person_id not in unique_person_ids:
                     # Step 3: If it's a new person_id, save the person_id and gpt_message_id
@@ -187,48 +184,19 @@ class GroupNode(Node):
                     self.delete_gpt_message_id_publisher.publish(msg)
                 self.delete_seq +=1
 
-        # Rewind relationships to tick in last item in spoken_list
-        rewind_tick = self.spoken_list[-1]['relationship_tick']
-        success = self.call_rewind_relationship()
-
-    def person_text_result_callback(self, msg):
-        """
-        Callback for results from a person text request.
-        """
-        if msg.seq == self.text_seq and msg.group_id == self.group_id:
-            self.get_logger().info('In person_text_result_callback')
-            self.speech_list.append({
-                'person_id' : msg.person_id,
-                'pi_id' : msg.pi_id,
-                'group_id' : msg.group_id,
-                'people_in_group': msg.people_in_group,
-                'text' : msg.text,
-                'gpt_message_id' : msg.gpt_message_id
-                'directed_id' : msg.directed_id
-                'relationship_tick' : msg.relationship_tick
-            })
-            self.last_text_recieved = True
-            self.text_seq += 1
-
-    def pi_speech_complete_callback(self, msg):
-        """
-        Callback for info that the pi has finished speaking a requested text.
-        """
-        if msg.seq == self.speech_seq and msg.group_id == self.group_id:
-            self.get_logger().info('In pi_speech_complete_callback')
-            if msg.complete == True:
-                self.spoken_list.append({
-                    'person_id' : msg.person_id,
-                    'pi_id' : msg.pi_id,
-                    'group_id' : msg.group_id,
-                    'people_in_group': msg.people_in_group,
-                    'text' : msg.text,
-                    'gpt_message_id' : msg.gpt_message_id
-                    'directed_id' : msg.directed_id
-                    'relationship_tick' : msg.relationship_tick
-                })
-                self.last_speech_completed = True
-                self.speech_seq += 1
+            # Only do if something has been spoken already
+            if len(self.spoken_list) != 0:
+                # Rewind relationships to tick in last item in spoken_list
+                rewind_tick = None
+                for num, _ in enumerate(self.spoken_list):
+                    # Find the last item where the relationships were actually ticked
+                    if self.spoken_list[-(num+1)]['relationship_ticked'] == True:
+                        rewind_tick = self.spoken_list[-(num+1)]['relationship_tick']
+                        break
+                if rewind_tick != None:
+                    success = self.call_rewind_relationship(self.group_id, rewind_tick, self.group_members)
+                    if success != True:
+                        self.get_logger().error("call_rewind_relationship failed!")
 
     def call_tick_get_relationship(self, person_a, person_b, group_id, group_members):
         """
@@ -242,8 +210,7 @@ class GroupNode(Node):
         
         :returns response.state_changed: bool, has the state changed?
         :returns from_state: what state we have changed from, if any
-        :returns from_state: what state we have changed to, if any
-        :returns from_state: what state we have changed from, if any
+        :returns to_state: what state we have changed to, if any
         :returns action: What action to speak about, if any
         """
         # Create a request message
@@ -299,17 +266,58 @@ class GroupNode(Node):
             self.get_logger().error("Failed to call rewind_relationship service")
             return False
 
+    def person_text_result_callback(self, msg):
+        """
+        Callback for results from a person text request.
+        """
+        if msg.seq == self.text_seq and msg.group_id == self.group_id:
+            self.get_logger().info('In person_text_result_callback')
+            self.speak_list.append({
+                'person_id' : msg.person_id,
+                'pi_id' : msg.pi_id,
+                'group_id' : msg.group_id,
+                'people_in_group': msg.people_in_group,
+                'text' : msg.text,
+                'gpt_message_id' : msg.gpt_message_id,
+                'directed_id' : msg.directed_id,
+                'relationship_ticked' : msg.relationship_ticked,
+                'relationship_tick' : msg.relationship_tick
+            })
+            self.last_text_recieved = True
+            self.text_seq += 1
+
+    def pi_speech_complete_callback(self, msg):
+        """
+        Callback for info that the pi has finished speaking a requested text.
+        """
+        if msg.seq == self.speech_seq and msg.group_id == self.group_id:
+            self.get_logger().info('In pi_speech_complete_callback')
+            if msg.complete == True:
+                self.spoken_list.append({
+                    'person_id' : msg.person_id,
+                    'pi_id' : msg.pi_id,
+                    'group_id' : msg.group_id,
+                    'people_in_group': msg.people_in_group,
+                    'text' : msg.text,
+                    'gpt_message_id' : msg.gpt_message_id,
+                    'directed_id' : msg.directed_id,
+                    'relationship_ticked' : msg.relationship_ticked,
+                    'relationship_tick' : msg.relationship_tick
+                })
+                self.last_speech_completed = True
+                self.speech_seq += 1
+
     def timer_callback(self):
         """
-        Every timer_period seconds, check if a next text request or speech is needed.
+        Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
-        if self.last_speech_completed == True and len(self.speech_list) != 0:
+        if self.last_speech_completed == True and len(self.speak_list) != 0:
             self.get_logger().info('PUBLISHING SPEECH')
-            # Use the FIRST item in speech_list
-            text_dict = self.speech_list.pop(0)
+            # Use the FIRST item in speak_list
+            text_dict = self.speak_list.pop(0)
             # Double check the person is still in the group
             if text_dict['person_id'] in self.group_members:
                 msg = PiSpeechRequest()
@@ -324,21 +332,25 @@ class GroupNode(Node):
                 msg.text = text_dict['text']
                 msg.gpt_message_id = text_dict['gpt_message_id']
                 msg.directed_id = text_dict['directed_id']
+                msg.relationship_ticked = text_dict['relationship_ticked']
+                msg.relationship_tick = text_dict['relationship_tick']
                 for i in range(5):
                     self.pi_speech_request_publisher.publish(msg)
                 self.last_speech_completed = False
+            else:
+                self.get_logger().error("Person who should speak is not in group currently!")
 
         # If last text was recevied or the group members have just been changed
         # Send a a request to a person for TEXT
         # TODO ever a case where we send a person too many text requests?
-        if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speech_list) < config.MAX_SPEECH_LIST_LEN:
+        if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
             self.get_logger().info('here1')
             msg = PersonTextRequest()
             msg.seq = self.text_seq
             msg.group_id = self.group_id
-            if len(self.speech_list) != 0:
+            if len(self.speak_list) != 0:
                 # Get last_speaker and last_message_directed from speech list
-                last_item = self.speech_list[-1]  # Get the last item in the list
+                last_item = self.speak_list[-1]  # Get the last item in the list
                 last_speaker = last_item['person_id']
                 last_message_directed = last_item['directed_id']
             elif len(self.spoken_list) != 0:
@@ -350,12 +362,17 @@ class GroupNode(Node):
                 last_speaker = 0
                 last_message_directed = 0
             person_id, message_type, directed_id = self.group_convo_manager.get_next(self.group_members, last_speaker, last_message_directed)
-            state_changed, from_state, to_state, action, tick_id = self.call_tick_get_relationship()
-            msg.relationship_tick = tick_id
-            msg.state_changed = state_changed
-            msg.from_state = from_state
-            msg.to_state = to_state
-            msg.action = action
+            if directed_id != 0:
+                # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
+                msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.relationship_tick = self.call_tick_get_relationship()
+                msg.relationship_ticked = True
+            else:
+                msg.relationship_ticked = False
+                msg.relationship_tick = 0
+                msg.state_changed = False
+                msg.from_state = "None"
+                msg.to_state = "None"
+                msg.action = "None"
             msg.person_id = person_id
             msg.message_type = message_type
             msg.directed_id = directed_id 
