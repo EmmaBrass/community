@@ -123,7 +123,7 @@ class PersonNode(Node):
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
             self.get_logger().info('In person_text_request_callback')
-            prompt_details = self.prompt_manager(msg.message_type, msg.directed_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
+            prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
             # TODO a double check that the directed_to is actually in the group?
             # TODO then prompt manager called!  To get extra parameters to pass to the person_llm
             # Decide on the mood/topic/ other instructions for the GPT.

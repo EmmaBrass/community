@@ -15,7 +15,6 @@ events:
       minutes: 7
       seconds: 0
     urgency: 70
-    groups_discussed: []
 
   - event: "There was a quadruple rainbow over London yesterday"
     id: 2
@@ -24,7 +23,6 @@ events:
       minutes: 25
       seconds: 0
     urgency: 25
-    groups_discussed: []
 
   - event: "The sky has turned red"
     id: 3
@@ -33,4 +31,3 @@ events:
       minutes: 10
       seconds: 0
     urgency: 95
-    groups_discussed: []

@@ -42,6 +42,9 @@ DIRECT_PERCENT = 40
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
 MAX_SPEAK_LIST_LEN = 6
 
+# If there are loads of events in a short space of time, a group will end up talking about an event way after it has happened
+# We have a check that (elapsed_seconds-event_timestamp) < MAX_EVENT_DISCUSS_WAIT (in seconds)
+MAX_EVENT_DISCUSS_WAIT = 60
 
 
 

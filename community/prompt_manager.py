@@ -19,7 +19,7 @@ class PromptManager():
     def __init__(self):
         pass
 
-    def get_relationship_prompt(sel, message_type: int, directed_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
+    def get_prompt_details(sel, message_type: int, directed_id: int, event_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
         """
         This person has been asked to speak.
         Looks at requested message type.
@@ -55,6 +55,8 @@ class PromptManager():
 
         elif message_type == 6:
             # use event_id to get event description and urgency and discuss it.  
+
+        return prompt_details
 
 
 

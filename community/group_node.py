@@ -361,7 +361,7 @@ class GroupNode(Node):
             else:
                 last_speaker = 0
                 last_message_directed = 0
-            person_id, message_type, directed_id = self.group_convo_manager.get_next(self.group_members, last_speaker, last_message_directed)
+            person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, last_message_directed)
             if directed_id != 0:
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
                 msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.relationship_tick = self.call_tick_get_relationship()
@@ -373,6 +373,7 @@ class GroupNode(Node):
                 msg.from_state = "None"
                 msg.to_state = "None"
                 msg.action = "None"
+            msg.event_id = event_id
             msg.person_id = person_id
             msg.message_type = message_type
             msg.directed_id = directed_id 

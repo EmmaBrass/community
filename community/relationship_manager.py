@@ -14,7 +14,7 @@ class RelationshipManager:
         # Load the YAML file
         with open('relationships.yaml', 'r') as file:
             self.relationships_yaml = yaml.safe_load(file)
-        # Extract person IDs
+        # Extract person IDs TODO
         self.person_ids = list(people_data['people'].keys())
 
         self.init_relationships()
