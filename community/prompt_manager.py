@@ -1,5 +1,6 @@
 from community.message_type import MessageType
 import yaml, os, random
+from ament_index_python.packages import get_package_share_directory
 
 class PromptManager():
     """
@@ -34,15 +35,29 @@ class PromptManager():
         }
 
         self.event_urgency_dict = {
-            [0,25] : "This is not very important news, don't make a big deal out of it.",
-            [25,50] : "This is kind-of important news, people will want to know.",
-            [50,75] : "This is big news.  Everyone needs to hear this.",
-            [75,100] : "This is world-changing news.  It is IMPERATIVE that everyone listens."
+            1 : {
+                'range' : [0,25],
+                'description' : "This is not very important news, don't make a big deal out of it."
+            },
+            2 : {
+                'range' : [25,50],
+                'description' : "This is kind-of important news, people will want to know.",
+            },
+            3 : {
+                'range' : [50,75],
+                'description' : "This is big news.  Everyone needs to hear this.",
+            },
+            4 : {
+                'range' : [75,100],
+                'description' : "This is world-changing news.  It is IMPERATIVE that everyone listens."
+            }
         }
 
-        current_dir = os.path.dirname(__file__)
-        events_path = os.path.join(current_dir, '../config_files/events.yaml')
-        people_path = os.path.join(current_dir, '../config_files/people.yaml')
+
+        # Get the path to the 'events.yaml' and the 'people.yml' file
+        package_share_dir = get_package_share_directory('community')
+        events_path = os.path.join(package_share_dir, 'config_files', 'events.yaml')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
 
         self.people_data = self.load_people(people_path)
         self.events_data = self.load_events(events_path)
@@ -127,9 +142,10 @@ class PromptManager():
             prompt_details = f"You just heard some news! {event_description} Talk about this."
             event_urgency = self.get_event_urgency_by_id(event_id)
             event_urgency_description = None
-            for key, value in self.event_urgency_dict:
-                if event_urgency > key[0] and event_urgency <= key[1]:
-                    event_urgency_description = value
+            for _, value in self.event_urgency_dict:
+                urgency_range = value['range']
+                if event_urgency > urgency_range[0] and event_urgency <= urgency_range[1]:
+                    event_urgency_description = value['description']
                     break
             if event_urgency_description != None:
                 prompt_details += event_urgency_description

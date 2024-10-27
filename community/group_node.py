@@ -16,7 +16,7 @@ from community_interfaces.msg import (
 from community_interfaces.srv import (
     RelationshipAction
 )
-import community.config_files.configuration as config
+import community.configuration as config
 
 import cv2, math, time, logging, pickle, random
 import numpy as np
@@ -119,6 +119,7 @@ class GroupNode(Node):
         """
         if msg.seq > self.group_info_seq:
             self.get_logger().debug('In group_info_callback')
+            self.get_logger().info(str(msg.group_id))
             if msg.group_id == self.group_id:
                 # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
@@ -148,6 +149,8 @@ class GroupNode(Node):
                             # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
+                else: 
+                    self.get_logger().info("ONLY 0s for PERSON IDS! thus no people")
             self.group_info_seq = msg.seq
 
     def delete_gpt_message_id_and_rewind_relationship_tick(self):

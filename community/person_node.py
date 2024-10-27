@@ -14,13 +14,15 @@ from community_interfaces.msg import (
     GroupInfo,
     DeleteGptMessageId
 )
-import community.config_files.configuration as config
+import community.configuration as config
 from community.person_llm import PersonLLM
 from community.prompt_manager import PromptManager
 
 import cv2, math, time, logging, pickle
 import numpy as np
-import yaml
+import yaml, os
+
+from ament_index_python.packages import get_package_share_directory
 
 
 class PersonNode(Node):
@@ -33,12 +35,13 @@ class PersonNode(Node):
         self.declare_parameter('person_id', 0)
         self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
 
-        # Load the YAML file
-        with open('people.yaml', 'r') as file: #TODO check yaml path
-            person_info_dict = yaml.safe_load(file)
+        # Get the path to the `people.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
+        self.people_data = self.load_people(people_path)
 
         # Now initialize the person object using person attributes from config yaml file
-        person_data = person_info_dict.get(self.person_id, {})
+        person_data = self.people_data.get(self.person_id, {})
         self.person = PersonLLM(
             person_id = self.person_id,
             name = person_data.get('name', "Person not found."),
@@ -105,6 +108,12 @@ class PersonNode(Node):
         self.group_info_subscription 
         self.delete_gpt_message_id_subscription
 
+    def load_people(self, file_path):
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
+
     def delete_gpt_message_id_callback(self, msg):
         """
         Delete messages on the GPT thread including and after 
@@ -153,7 +162,7 @@ class PersonNode(Node):
         msg.people_in_group = self.group_members
         msg.text = text
         msg.gpt_message_id = gpt_message_id
-        msg.directed_id = directed_id
+        msg.directed_id = directed_id #TODO relationship tick and ticked ????
         for i in range(5):
             self.person_text_result_publisher.publish(msg)
 
@@ -170,7 +179,7 @@ class PersonNode(Node):
                 assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
                 # Check if the person has been moved to a different pi
                 if assigned_pi != self.pi_id:
-                    self.get_logger().info('This person has moved to a different pi')
+                    self.get_logger().info('//////////////////////////////////////////////////////////////// This person has moved to a different pi')
                     # They have been moved
                     # Update the pi id
                     self.pi_id = assigned_pi

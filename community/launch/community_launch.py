@@ -18,6 +18,18 @@ def generate_launch_description():
             arguments=['--ros-args', '--log-level', 'INFO']
         ),
 
+        # Relationship Manager Node
+        Node(
+            package='community',
+            executable='relationship_manager_node',
+            name='relationship_manager_node',
+            output='screen',
+            parameters=[
+                {'log_level': 'INFO'}
+            ],
+            arguments=['--ros-args', '--log-level', 'INFO']
+        ),
+
         # Group Node 1
         Node(
             package='community',

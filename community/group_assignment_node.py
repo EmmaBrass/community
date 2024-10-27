@@ -14,7 +14,7 @@ from community_interfaces.msg import (
     PiPersonUpdates,
     GroupInfo
 )
-import community.config_files.configuration as config
+import community.configuration as config
 
 import cv2, math, time, logging, pickle, random
 import numpy as np
@@ -37,6 +37,7 @@ class GroupAssignmentNode(Node):
             pi_ids = group_info.get('pi_ids', [])
             members = [{'pi_id': pi_id, 'person_id': 0} for pi_id in pi_ids]
             self.pi_person_assignments.append({'group_id': group_id, 'members': members})
+        self.get_logger().info(str(self.pi_person_assignments))
 
         # Initialise publisher
         self.group_info_publisher = self.create_publisher(GroupInfo, 'group_info', 10)
@@ -70,7 +71,7 @@ class GroupAssignmentNode(Node):
                     # Update the person_id
                     member['person_id'] = new_person_id
                     return True  # Return True if the update was successful
-        return False  # Return False if the pi_id was not found
+        return False  # Return False if the pi_id was not found in any group
 
     def pi_person_updates_callback(self, msg):
         """
@@ -79,7 +80,7 @@ class GroupAssignmentNode(Node):
         # Update the pi/person assignments list
         success = self.update_pi_person_assignments(msg.pi_id, msg.person_id)
         if success == False:
-            self.get_logger.warning("Pi ID not found!")
+            self.get_logger().error("Pi ID not found in any group!")
 
     def timer_callback(self):
         """

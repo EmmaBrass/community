@@ -1,5 +1,7 @@
-import community.config_files.configuration as config
+import community.configuration as config
 from community.message_type import MessageType
+
+from ament_index_python.packages import get_package_share_directory
 
 import random, time, os, yaml
 
@@ -14,8 +16,9 @@ class GroupConvoManager():
         # Keep track of how long a convo has been back and forth between two people
         self.back_and_forth_counter = 0
 
-        current_dir = os.path.dirname(__file__)
-        events_path = os.path.join(current_dir, '../config_files/events.yaml')
+        # Get the path to the `events.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        events_path = os.path.join(package_share_dir, 'config_files', 'events.yaml')
 
         with open(events_path, 'r') as file:
             events_yaml = yaml.safe_load(file)

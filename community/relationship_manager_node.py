@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Trigger
 from community_interfaces.srv import RelationshipAction  # Assuming you have a custom service defined
-from relationship_manager import RelationshipManager
+from community.relationship_manager import RelationshipManager
 
 class RelationshipManagerService(Node):
     def __init__(self):

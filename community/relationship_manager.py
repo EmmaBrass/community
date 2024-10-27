@@ -1,7 +1,9 @@
 import random, yaml, os
 
-import community.config_files.configuration as config
+import community.configuration as config
 from community.relationships_state_machine import RelationshipMachine
+
+from ament_index_python.packages import get_package_share_directory
 
 class RelationshipManager:
     def __init__(self):
@@ -9,9 +11,10 @@ class RelationshipManager:
         self.tick_counter = []*len(config.GROUP_PI_ASSIGNMENTS)
         self.history = {}  # This will store all tick states by ID and group
 
-        # Load the people ids
-        current_dir = os.path.dirname(__file__)
-        people_path = os.path.join(current_dir, '../config_files/people.yaml')
+        # Get the path to the 'people.yml' file
+        package_share_dir = get_package_share_directory('community')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
+        # Load person_ids from yaml file
         self.person_ids = list(self.load_people(people_path).keys())
 
         self.init_relationships()

@@ -1,12 +1,10 @@
 
 from openai import OpenAI
-import json
-import os
-import re
-import time
-import requests
+import json, yaml, os, re, time, requests
 from datetime import datetime
-import community.config_files.configuration as config
+import community.configuration as config
+
+from ament_index_python.packages import get_package_share_directory
 
 # interactions as a dict... a list of all the text they have exchanged with other people in order, with time stamps?
 # or a list of dicts perhaps.  [{date_time: ''}, {group: ''}, {name: ''}, {text: ''}]
@@ -56,6 +54,17 @@ class PersonLLM():
         self.interactions = [] # create interactions list
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
+
+        # Get the path to the `people.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
+        self.people_data = self.load_people(people_path)
+
+    def load_people(self, file_path):
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
 
     def initialise_gpt(self):
         """
@@ -231,7 +240,8 @@ class PersonLLM():
         }) 
 
     def get_name_from_person_id(self, person_id: int):
-        name = config.PERSON_INFO_DICT.get(person_id, {}).get('name', None), 
+        person_data = self.people_data.get(person_id, {})
+        name = person_data.get('name', None),
         if name == None:
             print("Error! Name not found for this person_id")
         return name
