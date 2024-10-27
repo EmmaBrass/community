@@ -18,10 +18,12 @@ from community_interfaces.srv import (
 )
 import community.configuration as config
 
-import cv2, math, time, logging, pickle, random
+import os, yaml
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
+
+from ament_index_python.packages import get_package_share_directory
 
 
 class GroupNode(Node):
@@ -69,6 +71,11 @@ class GroupNode(Node):
         # Initialise GroupConvoManager object
         self.group_convo_manager = GroupConvoManager()
 
+        # Get the path to the `people.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
+        self.people_data = self.load_people(people_path)
+
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
         self.delete_gpt_message_id_publisher = self.create_publisher(DeleteGptMessageId, 'delete_gpt_message_id', 10)
@@ -113,13 +120,18 @@ class GroupNode(Node):
         while not self.rewind_relationship_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('rewind_relationship service not available, waiting...')
 
+    def load_people(self, file_path):
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
+
     def group_info_callback(self, msg):
         """
         Callback function for info on group assignment/members.
         """
         if msg.seq > self.group_info_seq:
             self.get_logger().debug('In group_info_callback')
-            self.get_logger().info(str(msg.group_id))
             if msg.group_id == self.group_id:
                 # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
@@ -127,7 +139,7 @@ class GroupNode(Node):
                         if person_id not in msg.person_ids:
                             self.get_logger().info('Someone left the group')
                             self.group_members.remove(person_id)
-                            self.get_logger().info(f'self.group_members {self.group_members}')
+                            self.get_logger().info(f'Updated group_members: {self.group_members}')
                             # Clear speech list as group makeup has changed
                             self.delete_gpt_message_id_and_rewind_relationship_tick()
                             self.speak_list = []
@@ -141,7 +153,7 @@ class GroupNode(Node):
                         if person_id not in self.group_members and person_id != 0:
                             self.get_logger().info('Someone joined the group')
                             self.group_members.append(person_id)
-                            self.get_logger().info(f'self.group_members {self.group_members}')
+                            self.get_logger().info(f'Updated group_members: {self.group_members}')
                             # Clear speech list as group makeup has changed
                             self.delete_gpt_message_id_and_rewind_relationship_tick()
                             self.speak_list = []
@@ -149,8 +161,6 @@ class GroupNode(Node):
                             # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
-                else: 
-                    self.get_logger().info("ONLY 0s for PERSON IDS! thus no people")
             self.group_info_seq = msg.seq
 
     def delete_gpt_message_id_and_rewind_relationship_tick(self):
@@ -222,21 +232,26 @@ class GroupNode(Node):
         request.person_b = person_b
         request.group_id = group_id
         request.group_members = group_members
+        self.get_logger().info("here7")
 
         # Send the request to the service and wait for the response
-        future = self.tick_get_relationship_client.call_async(request)
+        future = self.tick_get_relationship_client.call_async(request) #TODO not working !!! -> make a ros_test_env and play with this. read documentation.
         rclpy.spin_until_future_complete(self, future)
+        self.get_logger().info("here8")
 
         # Check if the request was successful
         if future.result() is not None:
             response = future.result()
+            self.get_logger().info("here9")
             self.get_logger().info(f"Relationship between {person_a} and {person_b}: state changed: {response.state_changed}, from: {response.from_state}, to: {response.to_state}, action: {response.action}, tick_id: {response.tick_id}")
         else:
+            self.get_logger().info("here10")
             self.get_logger().error("Failed to call tick_get_relationship service")
 
         from_state = None if response.from_state == "None" else response.from_state
         to_state = None if response.to_state == "None" else response.to_state
         action = None if response.action == "None" else response.to_state
+        self.get_logger().info("here11")
 
         return response.state_changed, from_state, to_state, action, response.tick_id
 
@@ -307,8 +322,8 @@ class GroupNode(Node):
                     'relationship_ticked' : msg.relationship_ticked,
                     'relationship_tick' : msg.relationship_tick
                 })
-                self.last_speech_completed = True
-                self.speech_seq += 1
+            self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
+            self.speech_seq += 1
 
     def timer_callback(self):
         """
@@ -352,41 +367,65 @@ class GroupNode(Node):
             msg.seq = self.text_seq
             msg.group_id = self.group_id
             if len(self.speak_list) != 0:
-                # Get last_speaker and last_message_directed from speech list
+                # Get last_speaker, second_last_speaker, and last_message_directed from speech list
                 last_item = self.speak_list[-1]  # Get the last item in the list
                 last_speaker = last_item['person_id']
                 last_message_directed = last_item['directed_id']
+                if len(self.speak_list) > 1:
+                    second_last_item = self.speak_list[-2]
+                    second_last_speaker = second_last_item['person_id']
+                else:
+                    second_last_speaker = 0
             elif len(self.spoken_list) != 0:
                 # Group has reset in some way - get from spoken list.
                 last_item = self.spoken_list[-1]  # Get the last item in the list
                 last_speaker = last_item['person_id']
                 last_message_directed = last_item['directed_id']
+                if len(self.spoken_list) > 1:
+                    second_last_item = self.spoken_list[-2]
+                    second_last_speaker = second_last_item['person_id']
+                else:
+                    second_last_speaker = 0
             else:
                 last_speaker = 0
                 last_message_directed = 0
-            person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, last_message_directed)
+                second_last_speaker = 0
+            self.get_logger().info('here2')
+            person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
+            self.get_logger().info('here3')
+            self.get_logger().info(str(person_id))
+            self.get_logger().info(str(message_type))
+            self.get_logger().info(str(directed_id))
+            self.get_logger().info(str(event_id))
             if directed_id != 0:
+                self.get_logger().info('here34')
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
-                msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.relationship_tick = self.call_tick_get_relationship()
+                msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.relationship_tick = self.call_tick_get_relationship(person_id, directed_id, self.group_id, self.group_members)
+                self.get_logger().info('here4')
                 msg.relationship_ticked = True
             else:
+                self.get_logger().info('here5')
                 msg.relationship_ticked = False
                 msg.relationship_tick = 0
                 msg.state_changed = False
                 msg.from_state = "None"
                 msg.to_state = "None"
-                msg.action = "None"
+                msg.action = "None" 
+            self.get_logger().info('here6')
             msg.event_id = event_id
             msg.person_id = person_id
             msg.message_type = message_type
             msg.directed_id = directed_id 
             for i in range(5):
                 self.person_text_request_publisher.publish(msg)
+            self.get_logger().info('here5')
             self.last_text_recieved = False
 
 
     def get_voice_id(self, person_id):
-        voice_id = config.PERSON_INFO_DICT.get(person_id, {}).get('voice_id', None)
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = self.people_data.get(person_id, {})
+        voice_id = person_data.get('voice_id', None)
         self.get_logger().info(f"Voice ID is: {voice_id}")
         if voice_id == None:
             self.get_logger().info("Error! Voice_id not found for this person_id")

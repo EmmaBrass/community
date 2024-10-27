@@ -80,7 +80,6 @@ class SimPiNode(Node): #TODO
         Used just after initialisation to set the number of people
         in this group.
         """
-        self.get_logger().info('In group_info_callback')
         if self.speech_seq == None:
             self.get_logger().info('Setting speech_seq list')
             # Count the number of members of the group and set the speech_seq
@@ -97,21 +96,41 @@ class SimPiNode(Node): #TODO
             # If yes, submit the text to the speakers.
             if msg.pi_id == self.pi_id and \
             (msg.seq > self.speech_seq[msg.group_id]):
-                self.get_logger().info(f'Requesting tts for text: {msg.text}')
-                self.text_to_speech(msg.text, msg.voice_id)
-                self.pi_speech_complete(
-                    msg.seq, 
-                    msg.person_id, 
-                    msg.pi_id,
-                    msg.group_id, 
-                    msg.people_in_group,
-                    msg.text,
-                    msg.gpt_message_id,
-                    msg.directed_id
-                )
-            self.speech_seq[msg.group_id] = msg.seq
+                if self.person_id == msg.person_id: # current person on here must equal the person in the message. 
+                    self.get_logger().info(f'Requesting tts for text: {msg.text}')
+                    self.text_to_speech(msg.text, msg.voice_id)
+                    self.pi_speech_complete(
+                        True,
+                        msg.seq, 
+                        msg.person_id, 
+                        msg.pi_id,
+                        msg.group_id, 
+                        msg.people_in_group,
+                        msg.text,
+                        msg.gpt_message_id,
+                        msg.directed_id,
+                        msg.relationship_ticked,
+                        msg.relationship_tick
+                    )
+                else: # need to send a 'not completed' back if person has been removed
+                    self.get_logger().info(f'Person for whom speech was requested is not on this pi anymore.')
+                    self.pi_speech_complete(
+                        False,
+                        msg.seq, 
+                        msg.person_id, 
+                        msg.pi_id,
+                        msg.group_id, 
+                        msg.people_in_group,
+                        msg.text,
+                        msg.gpt_message_id,
+                        msg.directed_id,
+                        msg.relationship_ticked,
+                        msg.relationship_tick
+                    )
+                self.speech_seq[msg.group_id] = msg.seq
+                
 
-    def pi_speech_complete(self, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id):
+    def pi_speech_complete(self, complete, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick):
         """
         Publish to say that the text has been spoken.
         """
@@ -124,7 +143,9 @@ class SimPiNode(Node): #TODO
         msg.text = text
         msg.gpt_message_id = gpt_message_id
         msg.directed_id = directed_id
-        msg.complete = True
+        msg.complete = complete
+        msg.relationship_ticked = relationship_ticked
+        msg.relationship_tick = relationship_tick
         for i in range(5):
             self.pi_speech_complete_publisher.publish(msg)
 
@@ -134,7 +155,7 @@ class SimPiNode(Node): #TODO
         (Or the absense of any RFID number: 0).
         """
         # Publish assigned person_id.
-        self.get_logger().info("Publishing current assigned person_id for this pi.")
+        self.get_logger().debug("Publishing current assigned person_id for this pi.")
         # Check if a card is available to read
         msg = PiPersonUpdates()
         msg.pi_id = self.pi_id
@@ -150,7 +171,7 @@ class SimPiNode(Node): #TODO
         text = to_speak
         audio = voice.synthesize(text,wav_file)
         # Play the .wav file
-        self.get_logger().info("Playing .wav file")
+        self.get_logger().info("Playing .wav file") #TODO implement streaming so they can stop talking mid-sentence.
         os.system('aplay output.wav')
 
 

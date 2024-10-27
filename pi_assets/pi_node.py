@@ -104,11 +104,13 @@ class PiNode(Node):
                     msg.people_in_group,
                     msg.text,
                     msg.gpt_message_id,
-                    msg.directed_id
+                    msg.directed_id,
+                    msg.relationship_ticked,
+                    msg.relationship_tick
                 )
             self.speech_seq[msg.group_id] = msg.seq
 
-    def pi_speech_complete(self, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id):
+    def pi_speech_complete(self, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick):
         """
         Publish to say that the text has been spoken.
         """
@@ -122,6 +124,8 @@ class PiNode(Node):
         msg.gpt_message_id = gpt_message_id
         msg.directed_id = directed_id
         msg.complete = True
+        msg.relationship_ticked = relationship_ticked
+        msg.relationship_tick = relationship_tick
         for i in range(5):
             self.pi_speech_complete_publisher.publish(msg)
 

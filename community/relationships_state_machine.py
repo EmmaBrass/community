@@ -1,10 +1,14 @@
-import yaml
-import random
+import random, os, yaml
 from transitions import Machine
+
+from ament_index_python.packages import get_package_share_directory
 
 # Load the YAML configuration
 def load_relationships_from_yaml():
-    with open('relationships.yaml', 'r') as file:
+    # Get the path to the `people.yaml` file
+    package_share_dir = get_package_share_directory('community')
+    relationships_path = os.path.join(package_share_dir, 'config_files', 'relationships.yaml')
+    with open(relationships_path, 'r') as file:
         data = yaml.safe_load(file)
     return data['relationships']
 

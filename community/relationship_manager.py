@@ -8,7 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 class RelationshipManager:
     def __init__(self):
         self.relationships = {}
-        self.tick_counter = []*len(config.GROUP_PI_ASSIGNMENTS)
+        self.tick_counter = [0]*len(config.GROUP_PI_ASSIGNMENTS)
         self.history = {}  # This will store all tick states by ID and group
 
         # Get the path to the 'people.yml' file
@@ -17,6 +17,11 @@ class RelationshipManager:
         # Load person_ids from yaml file
         self.person_ids = list(self.load_people(people_path).keys())
 
+        # Get the path to the `relationships.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        relationships_path = os.path.join(package_share_dir, 'config_files', 'relationships.yaml')
+        self.relationships_data = self.load_relationships(relationships_path)
+
         self.init_relationships()
 
     def load_people(self, file_path):
@@ -24,6 +29,11 @@ class RelationshipManager:
         with open(file_path, 'r') as file:
             data = yaml.safe_load(file)
         return data['people']
+
+    def load_relationships(self, file_path):
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['relationships']
 
     def init_relationships(self):
         """
@@ -34,29 +44,29 @@ class RelationshipManager:
         num_people = len(self.person_ids)
 
         # Initialize an empty 2D array for relationships, with each entry as None
-        relationships_matrix = [[None for _ in range(num_people)] for _ in range(num_people)]
+        self.relationships_matrix = [[None for _ in range(num_people)] for _ in range(num_people)]
 
         # Initialize the relationships matrix with fields: 'state_machine', 'interactions_left', 'action'
         for i in range(num_people):
             for j in range(i + 1, num_people):
                 relationship_machine = None  # A state machine in a certain state that can be queried
                 # Store the same reference in both [i][j] and [j][i]
-                relationships_matrix[i][j] = None
-                relationships_matrix[j][i] = None
+                self.relationships_matrix[i][j] = relationship_machine
+                self.relationships_matrix[j][i] = relationship_machine
 
-        # Example: access a relationship between person 1 and person 2
-        person_index_1 = 0  # index of the first person in the list
-        person_index_2 = 1  # index of the second person in the list
+        # # Example: access a relationship between person 1 and person 2
+        # person_index_1 = 0  # index of the first person in the list
+        # person_index_2 = 1  # index of the second person in the list
 
-        relationship_machine = relationships_matrix[person_index_1][person_index_2]
-        print(f"Initial relationship machine between person 1 and person 2: {relationship_machine}")
+        # relationship_machine = self.relationships_matrix[person_index_1][person_index_2]
+        # print(f"Initial relationship machine between person 1 and person 2: {relationship_machine}")
 
-        # Update the state machine, interactions left, and action for this relationship
-        relationship_machine = 'dating'
+        # # Update the state machine, interactions left, and action for this relationship
+        # relationship_machine = 'dating'
 
-        # Since both [i][j] and [j][i] point to the same object, the update applies to both
-        print(f"Updated relationship between person 1 and person 2: {relationships_matrix[person_index_1][person_index_2]}")
-        print(f"Relationship between person 2 and person 1 (should be identical): {relationships_matrix[person_index_2][person_index_1]}")
+        # # Since both [i][j] and [j][i] point to the same object, the update applies to both
+        # print(f"Updated relationship between person 1 and person 2: {self.relationships_matrix[person_index_1][person_index_2]}")
+        # print(f"Relationship between person 2 and person 1 (should be identical): {self.relationships_matrix[person_index_2][person_index_1]}")
 
     def create_tick_snapshot(self, group_id, group_members):
         """
@@ -80,8 +90,8 @@ class RelationshipManager:
                     idx_a = self.person_ids.index(member_a)
                     idx_b = self.person_ids.index(member_b)
 
-                    # Store the relationship machines between member_a and member_b
-                    filtered_relationships[(member_a, member_b)] = self.relationships_matrix[idx_a][idx_b].copy()
+                    # Store the relationship machine at the location of member_a and member_b in the matrix
+                    filtered_relationships[(member_a, member_b)] = self.relationships_matrix[idx_a][idx_b]
 
         # Store the snapshot for this tick and group
         snapshot = {
@@ -152,7 +162,7 @@ class RelationshipManager:
                 self.relationships_matrix[idx_a][idx_b] = relationship_machine
                 self.relationships_matrix[idx_b][idx_a] = relationship_machine
                 
-        self.create_tick_snapshot(self, group_id, group_members) # TODO tick snapshot should happen before or after the actual tick?
+        self.create_tick_snapshot(group_id, group_members) # TODO tick snapshot should happen before or after the actual tick?
         # Get current tick_id for this group
         tick_id = self.tick_counter[group_id - 1]
 
@@ -160,10 +170,9 @@ class RelationshipManager:
 
     def choose_relationship_type(self):
         """ Decide which relationship type to enter based on 'chance_to_start' probabilities. """
-        config = self.relationships_yaml
         
-        romantic_chance = config['relationship_probabilities']['romantic_relationship'].get('chance_to_start', 0)
-        friendship_chance = config['relationship_probabilities']['friendship_relationship'].get('chance_to_start', 0)
+        romantic_chance = self.relationships_data['romantic_relationship'].get('chance_to_start', 0)
+        friendship_chance = self.relationships_data['friendship_relationship'].get('chance_to_start', 0)
 
         total_chance = romantic_chance + friendship_chance
         if total_chance == 0:

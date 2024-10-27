@@ -141,12 +141,12 @@ class PersonNode(Node):
                 self.group_members, # Members of the group EXCLUDING the person who will talk.
                 prompt_details
             )
-            self.get_logger().info(f'Text from GPT!: {text}')
-            self.get_logger().info(f'Message ID from GPT!: {gpt_message_id}')
-            self.person_text_result_pub(msg.seq, text, gpt_message_id, msg.directed_id)
+            self.get_logger().info(f'Text from GPT: {text}')
+            self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
+            self.person_text_result_pub(msg.seq, text, gpt_message_id, msg.directed_id, msg.relationship_ticked, msg.relationship_tick)
             self.text_seq[msg.group_id-1] = msg.seq
 
-    def person_text_result_pub(self, seq, text, gpt_message_id, directed_id):
+    def person_text_result_pub(self, seq: int, text: str, gpt_message_id: int, directed_id: int, relationship_ticked: bool, relationship_tick: int):
         """
         Publish text to the person_text_result topic.
 
@@ -163,6 +163,8 @@ class PersonNode(Node):
         msg.text = text
         msg.gpt_message_id = gpt_message_id
         msg.directed_id = directed_id #TODO relationship tick and ticked ????
+        msg.relationship_ticked = relationship_ticked
+        msg.relationship_tick = relationship_tick
         for i in range(5):
             self.person_text_result_publisher.publish(msg)
 
@@ -174,15 +176,24 @@ class PersonNode(Node):
             self.get_logger().debug('In group_info_callback')
             if self.person_id in msg.person_ids:
                 # Find the others in the group from the msg
-                others_in_group = [person for person in msg.person_ids if person != self.person_id]
+                others_in_group = [person for person in msg.person_ids if person != self.person_id and person != 0]
                 # Get the assigned pi for this person
                 assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
+                self.get_logger().info('assigned_pi')
+                self.get_logger().info(str(assigned_pi))
+
                 # Check if the person has been moved to a different pi
                 if assigned_pi != self.pi_id:
-                    self.get_logger().info('//////////////////////////////////////////////////////////////// This person has moved to a different pi')
+                    self.get_logger().info('This person has been placed on a new pi.')
                     # They have been moved
                     # Update the pi id
                     self.pi_id = assigned_pi
+
+                self.get_logger().info('others_in_group')
+                self.get_logger().info(str(others_in_group))
+                self.get_logger().info('self.group_members')
+                self.get_logger().info(str(self.group_members))
+
                 # If they are in the same group as before
                 if msg.group_id == self.group_id:
                     # Check if a person left the group, to send to the gpt as metadata

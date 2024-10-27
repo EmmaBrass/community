@@ -58,7 +58,7 @@ class GroupConvoManager():
         return 0  # Returns 0 if no event to talk about, otherwise return event_id to be discussed.
 
 
-    def get_next(self, group_members, last_speaker, last_message_directed=0):
+    def get_next(self, group_members, last_speaker, second_last_speaker, last_message_directed=0):
         """
         Get next speaker and speech type.
 
@@ -71,9 +71,6 @@ class GroupConvoManager():
         :returns direct_to: The person the next message should be directed at (0 if none)
         :returns event_id: If of event to be talked about (0 if none)
         """
-
-        if last_speaker != 0:
-            self.speakers.append(last_speaker)
 
         # directed_id is 0 (noone) by default (message not directed at anyone)
         directed_id = 0
@@ -117,8 +114,8 @@ class GroupConvoManager():
                 # Last message was directed, and next one will be too
                 next_speaker = last_message_directed # get the person who the last message was directed at
                 message_type = MessageType.DIRECT.value
-                directed_id = last_speaker # Resoond to the most recent speaker
-                if next_speaker == self.speakers[-2]:
+                directed_id = last_speaker # Respond to the most recent speaker
+                if next_speaker == second_last_speaker:
                     back_and_forth_counter +=1
                 else:
                     back_and_forth_counter = 0
@@ -130,7 +127,7 @@ class GroupConvoManager():
                 else: 
                     message_type = MessageType.INTERRUPT.value
                 # Choose anyone apart from last speaker and person before that
-                filtered_members = [item for item in group_members if item != last_speaker and item != self.speakers[-2]]
+                filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
                 back_and_forth_counter = 0
             elif last_message_directed == 0:
