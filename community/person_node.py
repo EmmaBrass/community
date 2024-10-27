@@ -14,7 +14,7 @@ from community_interfaces.msg import (
     GroupInfo,
     DeleteGptMessageId
 )
-import community.configuration as config
+import community.config_files.configuration as config
 from community.person_llm import PersonLLM
 from community.prompt_manager import PromptManager
 
@@ -125,8 +125,7 @@ class PersonNode(Node):
             self.get_logger().info('In person_text_request_callback')
             prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
             # TODO a double check that the directed_to is actually in the group?
-            # TODO then prompt manager called!  To get extra parameters to pass to the person_llm
-            # Decide on the mood/topic/ other instructions for the GPT.
+            # TODO Decide on the mood for the GPT.
             text, gpt_message_id = self.person.person_speaks(
                 self.person_id,
                 self.group_id,

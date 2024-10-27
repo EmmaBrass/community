@@ -4,7 +4,7 @@ package_name = 'community'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -15,14 +15,16 @@ setup(
     zip_safe=True,
     maintainer='emma',
     maintainer_email='emma@brassville.com',
-    description='TODO: Package description',
+    description='A system of conversing LLM-driven personas.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
         	'group_assignment_node = community.group_assignment_node:main',
         	'group_node = community.group_node:main',
-            'person_node = community.person_node:main'
+            'person_node = community.person_node:main',
+            'sim_pi_node = community.sim_pi_node:main',
+            'sim_pi_controller_node = community.sim_pi_controller_node:main',
         ],
     },
 )

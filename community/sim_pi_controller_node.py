@@ -6,7 +6,7 @@ import curses
 
 from community_interfaces.msg import SimPiPersonAssign
 
-import community.configuration as config
+import community.config_files.configuration as config
 
 from pynput import keyboard
 

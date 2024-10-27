@@ -23,8 +23,6 @@ from community_interfaces.msg import (
     SimPiPersonAssign
 )
 
-from pynput import keyboard
-
 
 class SimPiNode(Node): #TODO
 
@@ -70,7 +68,7 @@ class SimPiNode(Node): #TODO
         # Prevent unused variable warnings
         self.pi_speech_request_subscription 
 
-    def sim_pi_person_assign_callback(self):
+    def sim_pi_person_assign_callback(self, msg):
         """
         Update what person is on this simulated pi node.
         """
@@ -135,24 +133,9 @@ class SimPiNode(Node): #TODO
         Every x seconds, publish the ID for the RFID object on this pi at the moment.
         (Or the absense of any RFID number: 0).
         """
-        # Check and update assigned RFID object.
-        # TODO have a simulation version for this... for testing...
-        # Publish assigned RFID object number.
-        self.get_logger().info("Checking for RFID/NFC card...")
+        # Publish assigned person_id.
+        self.get_logger().info("Publishing current assigned person_id for this pi.")
         # Check if a card is available to read
-        try:
-            uid = self.pn532.read_passive_target(timeout=0.5)
-        except:
-            self.get_logger().info("Card read error - wrong card type used?")
-            self.person_id = 0
-        if uid is None:
-            self.get_logger().info("No card found.")
-            self.person_id = 0
-        else:
-            uid_str = ''.join([str(i) for i in uid])
-            uid_int = int(uid_str)
-            self.get_logger().info(f"Found card with UID: {uid_int}")
-            self.person_id = uid_int
         msg = PiPersonUpdates()
         msg.pi_id = self.pi_id
         msg.person_id = self.person_id

@@ -1,13 +1,5 @@
-from enum import Enum
-
-class MessageType(Enum):
-    JOINING = 0 # Say hello because just joined a group
-    LEAVING = 1 # Say bye because leaving a group (likely won't be used...)
-    OPEN = 2 # Say whatever into the group
-    ALONE = 3 # A person alone in a group
-    INTERRUPT = 4 # A new person interrupting a back-and-forth
-    DIRECT = 5 # A direct message aimed at someone in particular
-    EVENT = 6 # Talk about some global event that has just happened.
+from community.message_type import MessageType
+import yaml, os, random
 
 class PromptManager():
     """
@@ -17,9 +9,78 @@ class PromptManager():
     """
     
     def __init__(self):
-        pass
 
-    def get_prompt_details(sel, message_type: int, directed_id: int, event_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
+        self.interrupt_responses = {
+            0 : "You are bored of hearing them speak, and tell them so.",
+            1 : "You are really excited about their conversation topic and you give them your own opinion.",
+            2 : "You know more about what they are talking about than they do.  You offer them your specific insights.",
+            3 : "You are very curious about their conversation topic and you ask a pertinent question."
+        }
+
+        self.alone_responses = {
+            0 : "You say you are happy to be alone.  People overwhelm you sometimes.",
+            1 : "You comment on how you feel lonely.",
+            2 : "You say you might go completely crazy here alone, because humans are social animals after all.",
+            3 : "You mumble gibberish to yourself, like you are thinking aloud."
+        }
+
+        self.open_responses = {
+            0 : "You respond to whatever topic people have been discussing most recently in the group.",
+            1 : "You say one sentence in response to the most recent conversation topic, \
+                then another sentence to move to an adjacent topic.",
+            2 : "You respond to the current conversation topic, expressing excitement for this topic.",
+            3 : "You respond to the current conversation topic, but also expressing exasperation for this topic, \
+                with a reason for your exasperation."
+        }
+
+        self.event_urgency_dict = {
+            [0,25] : "This is not very important news, don't make a big deal out of it.",
+            [25,50] : "This is kind-of important news, people will want to know.",
+            [50,75] : "This is big news.  Everyone needs to hear this.",
+            [75,100] : "This is world-changing news.  It is IMPERATIVE that everyone listens."
+        }
+
+        current_dir = os.path.dirname(__file__)
+        events_path = os.path.join(current_dir, '../config_files/events.yaml')
+        people_path = os.path.join(current_dir, '../config_files/people.yaml')
+
+        self.people_data = self.load_people(people_path)
+        self.events_data = self.load_events(events_path)
+
+    def load_events(self, file_path):
+        """ Load events data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['events']
+
+    def get_event_description_by_id(self, event_id):
+        """ Function to get an event's description by ID. """
+        event = self.events_data.get(str(event_id))  # Ensure ID is treated as a string
+        if event:
+            return event.get('description')
+        return "Event not found"
+    
+    def get_event_urgency_by_id(self, event_id):
+        """ Function to get an event's urgency by ID. """
+        event = self.events_data.get(str(event_id))  # Ensure ID is treated as a string
+        if event:
+            return event.get('urgency')
+        return "Event not found"
+
+    def load_people(self, file_path):
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
+    
+    def get_name_by_id(self, person_id):
+        """ Function to get a person's name by ID. """
+        person = self.people_data.get(str(person_id))  # Ensure ID is a string for key lookup
+        if person:
+            return person.get('name')
+        return "Person not found"
+
+    def get_prompt_details(self, message_type: int, directed_id: int, event_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
         """
         This person has been asked to speak.
         Looks at requested message type.
@@ -33,28 +94,47 @@ class PromptManager():
         """
         # Maybe a prompt 
         
-        if message_type == 0:
-            # respond to previous thing and say hello
-        
-        elif message_type == 1:
-            # respond to previous thing and say bye?
-
-        elif message_type == 2:
+        if MessageType(message_type).name == 'JOINING':
+            # Say hello
+            prompt_details = "You have just joined the group.  Say hello in a few words."
+        elif MessageType(message_type).name == 'LEAVING':
+            # respond to previous thing and say bye.
+            prompt_details = "You are leaving the group.  Respond breifly to the current \
+                conversation topic and then say goodbye in a few words."
+        elif MessageType(message_type).name == 'OPEN':
             # just respond to previous thing for 2 sentences
-
-        elif message_type == 3:
+            prompt_details = self.open_responses[random.randint(0,3)]
+        elif MessageType(message_type).name == 'ALONE':
             # talk baout feeling alone
-
-        elif message_type == 4: 
+            prompt_details = f"You are the only one in the group. {self.alone_responses[random.randint(0,3)]}."
+        elif MessageType(message_type).name == 'INTERRUPT': 
             # interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
-
-        elif message_type == 5:
-            # get name of person the message is directed at using directed_id
-            # check if state of the relationship has changed and comment on that
-            # check if any action to discuss and comment on that if so
-
-        elif message_type == 6:
-            # use event_id to get event description and urgency and discuss it.  
+            prompt_details = f"You are interrupting a back-and-forth between two people. {self.interrupt_responses[random.randint(0,3)]}."
+        elif MessageType(message_type).name == 'DIRECT':
+            prompt_details = ""
+            # Get name of person the message is directed at using directed_id
+            directed_name = self.get_name_by_id(directed_id)
+            prompt_details += f"This response will be directed at {directed_name}."
+            # Check if state of the relationship has changed and comment on that
+            if state_changed == True:
+                prompt_details += f"The state of your relationship with this person has just changed \
+                     from {from_state} to {to_state}.  Comment on this!"
+            if action != 'None':
+                prompt_details += f"Say to the other person something like: {action}"
+        elif MessageType(message_type).name == 'EVENT':
+            # Use event_id to get event description and urgency and discuss it.  
+            event_description = self.get_event_description_by_id(event_id)
+            prompt_details = f"You just heard some news! {event_description} Talk about this."
+            event_urgency = self.get_event_urgency_by_id(event_id)
+            event_urgency_description = None
+            for key, value in self.event_urgency_dict:
+                if event_urgency > key[0] and event_urgency <= key[1]:
+                    event_urgency_description = value
+                    break
+            if event_urgency_description != None:
+                prompt_details += event_urgency_description
+            else:
+                print("Error! event_urgency_description not found.")
 
         return prompt_details
 

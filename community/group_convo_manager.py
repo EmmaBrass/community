@@ -1,17 +1,7 @@
-import community.configuration as config
-from enum import Enum
+import community.config_files.configuration as config
+from community.message_type import MessageType
 
-import random, time
-import yaml
-
-class MessageType(Enum):
-    JOINING = 0 # Say hello because just joined a group
-    LEAVING = 1 # Say bye because leaving a group (likely won't be used...)
-    OPEN = 2 # Say whatever into the group
-    ALONE = 3 # A person alone in a group
-    INTERRUPT = 4 # A new person interrupting a back-and-forth
-    DIRECT = 5 # A direct message aimed at someone in particular
-    EVENT = 6 # Talk about some global event that has just happened
+import random, time, os, yaml
 
 class GroupConvoManager():
     """
@@ -24,8 +14,10 @@ class GroupConvoManager():
         # Keep track of how long a convo has been back and forth between two people
         self.back_and_forth_counter = 0
 
-        # Load events data from yaml file
-        with open('events.yaml', 'r') as file:
+        current_dir = os.path.dirname(__file__)
+        events_path = os.path.join(current_dir, '../config_files/events.yaml')
+
+        with open(events_path, 'r') as file:
             events_yaml = yaml.safe_load(file)
         self.events_data = events_yaml['events']
 
@@ -49,21 +41,19 @@ class GroupConvoManager():
         If yes, check if that event has already been talked about.
         If it has not been talked about, return the event_id.
         """
-        
         time_now = time.time()
         elapsed_seconds = time_now - self.initialise_time
         # Check if the current time is past the event time
-        for event in self.events_data:
+        for event_id, event in self.events_data.items():
             timestamp = event['timestamp']
             timestamp_seconds = self.convert_to_seconds(timestamp)
-            if elapsed_seconds > timestamp_seconds and elapsed_seconds < (timestamp_seconds+config.MAX_EVENT_DISCUSS_WAIT) :
+            if elapsed_seconds > timestamp_seconds and elapsed_seconds < (timestamp_seconds + config.MAX_EVENT_DISCUSS_WAIT):
                 # Check if that event has already been discussed by this group
-                event_id = event['id']
                 if event_id not in self.discussed_event_ids:
                     self.discussed_event_ids.append(event_id)
-                    return event_id # if multiple events, we will just return the FIRST one to be discussed.
-        
-        return 0 # Returns 0 if no event to talk about, otherwise return event_id to be discussed.
+                    return int(event_id)  # Return event_id as integer
+        return 0  # Returns 0 if no event to talk about, otherwise return event_id to be discussed.
+
 
     def get_next(self, group_members, last_speaker, last_message_directed=0):
         """

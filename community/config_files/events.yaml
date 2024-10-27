@@ -7,8 +7,9 @@
 
 # TODO time management... some record in launch file of start time.  Then compared to current tome and the timestamps in here.
 
-events:
-  - event: "SpaceX got their first person to land on the moon"
+events: #TODO update parsing of this in gorup_convo_manager
+  1:
+    description: "SpaceX got their first person to land on the moon."
     id: 1
     timestamp:
       hours: 0
@@ -16,7 +17,8 @@ events:
       seconds: 0
     urgency: 70
 
-  - event: "There was a quadruple rainbow over London yesterday"
+  2:
+    description: "There was a quadruple rainbow over London yesterday."
     id: 2
     timestamp:
       hours: 0
@@ -24,7 +26,8 @@ events:
       seconds: 0
     urgency: 25
 
-  - event: "The sky has turned red"
+  3:
+    description: "The sky has turned red."
     id: 3
     timestamp:
       hours: 0

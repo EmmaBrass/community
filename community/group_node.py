@@ -16,7 +16,7 @@ from community_interfaces.msg import (
 from community_interfaces.srv import (
     RelationshipAction
 )
-import community.configuration as config
+import community.config_files.configuration as config
 
 import cv2, math, time, logging, pickle, random
 import numpy as np

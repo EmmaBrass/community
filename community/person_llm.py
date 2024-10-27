@@ -6,7 +6,7 @@ import re
 import time
 import requests
 from datetime import datetime
-import community.configuration as config
+import community.config_files.configuration as config
 
 # interactions as a dict... a list of all the text they have exchanged with other people in order, with time stamps?
 # or a list of dicts perhaps.  [{date_time: ''}, {group: ''}, {name: ''}, {text: ''}]
@@ -65,28 +65,22 @@ class PersonLLM():
         intro_instructions = f"You embody a human, \
             with a full life and backstory.  You will assigned a group, in which you will \
             be placed with 1 to 5 other people.  You will all have a conversation.\
-            When you are placed in a group, you will be reminded of all the past interations \
-            you have had with the others in this group.  When a user message command is given, you should \
+            When a user message command is given, you should \
             only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response \
             that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>; \
             this is very important.\n\
             If your response is not NONE, it should be slightly different every time.\n\
             Your response should be quite dramatic and emotive.\n\
-            Rely heavily on the descriptions of the relationships between people.\n\
             Use no more than about 30 words in a response.\n\
             You will be given one of these commands:\n\
-            <NEW GROUP> You have joined a new group and are given a summary of your past \
-            interactions with each of the group members.\n\
+            <NEW GROUP> You have joined a new group and are told who else is in your current group.\n\
             <TEXT> Another member of your group is speaking. You will be given their name, and \
             the text for what they say.\n\
             <MEMBER LEFT> You will be given the name of the person who has left the group.\n\
             <MEMBER JOINED> You will be given the name of the person who has joined the group.\n\
-            <RESPOND-NORMAL> It is your turn to speak.  Say something that continues the conversation.\n\
-            This command may include some instructions on what topic you should speak about.\n\
-            <RESPOND-ALONE> You are the only one in the group.  Say you are lonely.\n\
-            <RESPOND-JOINING> Say hello to everyone in your new group.\n\
-            <RESPOND-LEAVING> Say goodbye to everyone in the group you are leaving.\n\
-            Before we start, I will give you some information about yourself.  \
+            <RESPOND> It's your turn to speak.  You will be given specific instructions on \
+            what sort of thing you should say. \n\
+            Before we start, here is some information about yourself.  \
             Your name is {self.name} and you are a {self.gender} and {self.age} years old.  \
             To describe your personality, I will give you a score from 0 (low) \
             to 10 (high) on each of the Big Five personality traits:\n\
@@ -113,8 +107,7 @@ class PersonLLM():
         person_id: int, 
         group_id: int, 
         people_in_group: list, # Members of the group EXCLUDING this person.
-        message_type: int,
-        directed_id: int 
+        prompt_details: str
     ):
         """
         Request text from THIS PERSON.
@@ -130,18 +123,7 @@ class PersonLLM():
         :returns reponse: The text response
         :returns gpt_message_id: The ID number of the GPT message reponse
         """
-        if message_type == 0: # Say hello because you have joined
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-JOINING>")
-        elif message_type == 1: # Say goodbye because you are leaving
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-LEAVING>")
-        elif message_type == 2: # Continue the convo in any way, non directed
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-NORMAL>")
-        elif message_type == 3: # Only one in the group, all alone
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
-        elif message_type == 4: # Interrupting a back-and-forth
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
-        elif message_type == 5: # A direct message aimed at someone in particular. TODO give the gpt who to direct to
-            response, gpt_message_id = self.add_user_message_and_get_response("<RESPOND-ALONE>")
+        response, gpt_message_id = self.add_user_message_and_get_response(f"<RESPOND> {prompt_details}")
         # Save the text to the interactions memory dict
         self.update_interactions_dict(person_id, group_id, people_in_group, response)
         return response, gpt_message_id

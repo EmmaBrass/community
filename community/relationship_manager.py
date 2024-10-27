@@ -1,8 +1,6 @@
-import random
-from transitions import Machine
-import yaml
+import random, yaml, os
 
-import community.configuration as config
+import community.config_files.configuration as config
 from community.relationships_state_machine import RelationshipMachine
 
 class RelationshipManager:
@@ -11,13 +9,18 @@ class RelationshipManager:
         self.tick_counter = []*len(config.GROUP_PI_ASSIGNMENTS)
         self.history = {}  # This will store all tick states by ID and group
 
-        # Load the YAML file
-        with open('relationships.yaml', 'r') as file:
-            self.relationships_yaml = yaml.safe_load(file)
-        # Extract person IDs TODO
-        self.person_ids = list(people_data['people'].keys())
+        # Load the people ids
+        current_dir = os.path.dirname(__file__)
+        people_path = os.path.join(current_dir, '../config_files/people.yaml')
+        self.person_ids = list(self.load_people(people_path).keys())
 
         self.init_relationships()
+
+    def load_people(self, file_path):
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
 
     def init_relationships(self):
         """
