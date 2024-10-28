@@ -120,6 +120,7 @@ class GroupNode(Node):
         while not self.rewind_relationship_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('rewind_relationship service not available, waiting...')
 
+
     def load_people(self, file_path):
         """ Load people data from the YAML file. """
         with open(file_path, 'r') as file:
@@ -211,7 +212,27 @@ class GroupNode(Node):
                     if success != True:
                         self.get_logger().error("call_rewind_relationship failed!")
 
-    def call_tick_get_relationship(self, person_a, person_b, group_id, group_members):
+
+    def text_request_no_relationship(self, person_id, directed_id, event_id, message_type):
+        msg = PersonTextRequest()
+        msg.seq = self.text_seq
+        msg.group_id = self.group_id
+        msg.relationship_ticked = False
+        msg.relationship_tick = 0
+        msg.state_changed = False
+        msg.from_state = "None"
+        msg.to_state = "None"
+        msg.action = "None" 
+        msg.event_id = event_id
+        msg.person_id = person_id
+        msg.message_type = message_type
+        msg.directed_id = directed_id 
+        for i in range(5):
+            self.person_text_request_publisher.publish(msg)
+        self.get_logger().info('here5')
+        self.last_text_recieved = False
+
+    def text_request_with_relationship(self, person_id, directed_id, event_id, message_type):
         """
         Call the RelationshipManager service to tick on the relationship between two people,
         and return the current relationship state.
@@ -228,32 +249,52 @@ class GroupNode(Node):
         """
         # Create a request message
         request = RelationshipAction.Request()
-        request.person_a = person_a
-        request.person_b = person_b
-        request.group_id = group_id
-        request.group_members = group_members
+        request.person_a = person_id
+        request.person_b = directed_id
+        request.group_id = self.group_id
+        request.group_members = self.group_members
         self.get_logger().info("here7")
 
         # Send the request to the service and wait for the response
         future = self.tick_get_relationship_client.call_async(request) #TODO not working !!! -> make a ros_test_env and play with this. read documentation.
-        rclpy.spin_until_future_complete(self, future)
+        # rclpy.spin_until_future_complete(self, future)
+        future.add_done_callback(lambda future: self.handle_tick_get_relationship_response(future, event_id, person_id, message_type, directed_id))
+
+    # Define the callback function to handle the response:
+    def handle_tick_get_relationship_response(self, future, event_id, person_id, message_type, directed_id):
         self.get_logger().info("here8")
-
-        # Check if the request was successful
-        if future.result() is not None:
+        try:
             response = future.result()
-            self.get_logger().info("here9")
-            self.get_logger().info(f"Relationship between {person_a} and {person_b}: state changed: {response.state_changed}, from: {response.from_state}, to: {response.to_state}, action: {response.action}, tick_id: {response.tick_id}")
-        else:
-            self.get_logger().info("here10")
-            self.get_logger().error("Failed to call tick_get_relationship service")
-
-        from_state = None if response.from_state == "None" else response.from_state
-        to_state = None if response.to_state == "None" else response.to_state
-        action = None if response.action == "None" else response.to_state
-        self.get_logger().info("here11")
-
-        return response.state_changed, from_state, to_state, action, response.tick_id
+            if response:
+                self.get_logger().info(f"Received response: state changed: {response.state_changed}, from: {response.from_state}, to: {response.to_state}, action: {response.action}, tick_id: {response.tick_id}")
+                # Check if the request was successful
+                if future.result() is not None:
+                    response = future.result()
+                    self.get_logger().info("here11")
+                    msg = PersonTextRequest()
+                    msg.seq = self.text_seq
+                    msg.group_id = self.group_id
+                    msg.relationship_ticked = True
+                    msg.relationship_tick = response.tick_id
+                    msg.state_changed = response.state_changed
+                    msg.from_state = response.from_state
+                    msg.to_state = response.to_state
+                    msg.action = response.action
+                    msg.event_id = event_id
+                    msg.person_id = person_id
+                    msg.message_type = message_type
+                    msg.directed_id = directed_id 
+                    for i in range(5):
+                        self.person_text_request_publisher.publish(msg)
+                    self.get_logger().info('here5')
+                    self.last_text_recieved = False
+                else:
+                    self.get_logger().error("Failed to call tick_get_relationship service")
+                    
+            else:
+                self.get_logger().error("Received an empty response from tick_get_relationship service.")
+        except Exception as e:
+            self.get_logger().error(f"Service call failed with exception: {e}")
 
     def call_rewind_relationship(self, group_id, tick_id, group_members):
         """
@@ -330,6 +371,8 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
+        self.get_logger().info(str(self.last_speech_completed))
+        self.get_logger().info(str(self.last_text_recieved))
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
         if self.last_speech_completed == True and len(self.speak_list) != 0:
@@ -363,9 +406,7 @@ class GroupNode(Node):
         # TODO ever a case where we send a person too many text requests?
         if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
             self.get_logger().info('here1')
-            msg = PersonTextRequest()
-            msg.seq = self.text_seq
-            msg.group_id = self.group_id
+            
             if len(self.speak_list) != 0:
                 # Get last_speaker, second_last_speaker, and last_message_directed from speech list
                 last_item = self.speak_list[-1]  # Get the last item in the list
@@ -390,36 +431,15 @@ class GroupNode(Node):
                 last_speaker = 0
                 last_message_directed = 0
                 second_last_speaker = 0
-            self.get_logger().info('here2')
             person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
-            self.get_logger().info('here3')
-            self.get_logger().info(str(person_id))
-            self.get_logger().info(str(message_type))
-            self.get_logger().info(str(directed_id))
-            self.get_logger().info(str(event_id))
             if directed_id != 0:
                 self.get_logger().info('here34')
+                self.text_request_with_relationship(person_id, directed_id, event_id, message_type)
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
-                msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.relationship_tick = self.call_tick_get_relationship(person_id, directed_id, self.group_id, self.group_members)
-                self.get_logger().info('here4')
-                msg.relationship_ticked = True
+                self.get_logger().info('here4') 
             else:
-                self.get_logger().info('here5')
-                msg.relationship_ticked = False
-                msg.relationship_tick = 0
-                msg.state_changed = False
-                msg.from_state = "None"
-                msg.to_state = "None"
-                msg.action = "None" 
-            self.get_logger().info('here6')
-            msg.event_id = event_id
-            msg.person_id = person_id
-            msg.message_type = message_type
-            msg.directed_id = directed_id 
-            for i in range(5):
-                self.person_text_request_publisher.publish(msg)
-            self.get_logger().info('here5')
-            self.last_text_recieved = False
+                self.text_request_no_relationship(person_id, directed_id, event_id, message_type)
+            
 
 
     def get_voice_id(self, person_id):

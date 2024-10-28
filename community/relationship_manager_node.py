@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Trigger
-from community_interfaces.srv import RelationshipAction  # Assuming you have a custom service defined
+from community_interfaces.srv import RelationshipAction
 from community.relationship_manager import RelationshipManager
 
 class RelationshipManagerService(Node):
@@ -20,16 +20,20 @@ class RelationshipManagerService(Node):
         Tick the relationship between two people,
         and return the state of that relationship.
         """
+        self.get_logger().info("HERE in relationship manager node!")
         person_a = request.person_a
         person_b = request.person_b
         group_id = request.group_id
         group_members = request.group_members
+        self.get_logger().info("HERE2!")
         result, tick_id = self.relationship_manager.tick_get_relationship(person_a, person_b, group_id, group_members) # state_changed, from, to, action
+        self.get_logger().info("HERE3!")        
         response.state_changed = bool(result['state_changed'])
         response.from_state = str(result['from_state'])
         response.to_state = str(result['to_state'])
         response.action = str(result['action'])
         response.tick_id = tick_id
+        self.get_logger().info("HERE4!")
         return response
 
     def rewind_relationship_callback(self, request, response):

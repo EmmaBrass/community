@@ -70,17 +70,19 @@ class PromptManager():
 
     def get_event_description_by_id(self, event_id):
         """ Function to get an event's description by ID. """
-        event = self.events_data.get(str(event_id))  # Ensure ID is treated as a string
+        event = self.events_data.get(event_id)  # Ensure ID is treated as a string
         if event:
             return event.get('description')
-        return "Event not found"
+        else:
+            raise LookupError("event not found!")
     
     def get_event_urgency_by_id(self, event_id):
         """ Function to get an event's urgency by ID. """
-        event = self.events_data.get(str(event_id))  # Ensure ID is treated as a string
+        event = self.events_data.get(event_id)  # Ensure ID is treated as a string
         if event:
             return event.get('urgency')
-        return "Event not found"
+        else:
+            raise LookupError("event not found!")
 
     def load_people(self, file_path):
         """ Load people data from the YAML file. """
@@ -90,10 +92,11 @@ class PromptManager():
     
     def get_name_by_id(self, person_id):
         """ Function to get a person's name by ID. """
-        person = self.people_data.get(str(person_id))  # Ensure ID is a string for key lookup
+        person = self.people_data.get(person_id)  # Ensure ID is a string for key lookup
         if person:
             return person.get('name')
-        return "Person not found"
+        else:
+            raise LookupError("person not found!")
 
     def get_prompt_details(self, message_type: int, directed_id: int, event_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
         """
@@ -132,8 +135,7 @@ class PromptManager():
             prompt_details += f"This response will be directed at {directed_name}."
             # Check if state of the relationship has changed and comment on that
             if state_changed == True:
-                prompt_details += f"The state of your relationship with this person has just changed \
-                     from {from_state} to {to_state}.  Comment on this!"
+                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}.  Comment on this!"
             if action != 'None':
                 prompt_details += f"Say to the other person something like: {action}"
         elif MessageType(message_type).name == 'EVENT':

@@ -54,6 +54,7 @@ class PersonNode(Node):
             extraversion = person_data.get('extraversion', "Person not found."),
             history = person_data.get('history', "Person not found."),
             relationships = person_data.get('relationships', "Person not found."),
+            personality = person_data.get('relationships', "Person not found.")
         )
 
         self.group_id = None # will change
@@ -132,7 +133,16 @@ class PersonNode(Node):
             and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
             self.get_logger().info('In person_text_request_callback')
+            self.get_logger().info(str(msg.message_type))
+            self.get_logger().info(str(msg.directed_id))
+            self.get_logger().info(str(msg.event_id))
+            self.get_logger().info(str(msg.state_changed))
+            self.get_logger().info(str(msg.from_state))
+            self.get_logger().info(str(msg.to_state))
+            self.get_logger().info(str(msg.action))
             prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
+            self.get_logger().info('////////////////////////////prompt_details')
+            self.get_logger().info(str(prompt_details))
             # TODO a double check that the directed_to is actually in the group?
             # TODO Decide on the mood for the GPT.
             text, gpt_message_id = self.person.person_speaks(
@@ -179,8 +189,6 @@ class PersonNode(Node):
                 others_in_group = [person for person in msg.person_ids if person != self.person_id and person != 0]
                 # Get the assigned pi for this person
                 assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
-                self.get_logger().info('assigned_pi')
-                self.get_logger().info(str(assigned_pi))
 
                 # Check if the person has been moved to a different pi
                 if assigned_pi != self.pi_id:
@@ -188,11 +196,6 @@ class PersonNode(Node):
                     # They have been moved
                     # Update the pi id
                     self.pi_id = assigned_pi
-
-                self.get_logger().info('others_in_group')
-                self.get_logger().info(str(others_in_group))
-                self.get_logger().info('self.group_members')
-                self.get_logger().info(str(self.group_members))
 
                 # If they are in the same group as before
                 if msg.group_id == self.group_id:
@@ -232,8 +235,8 @@ class PersonNode(Node):
                 msg.person_id, 
                 msg.group_id, 
                 msg.people_in_group, # This is everyone in the group EXCLUDING the speaker
-                msg.text,
-                msg.directed_id # Who the message was directed at
+                msg.text
+                # msg.directed_id # Who the message was directed at
             )
             self.speech_seq[msg.group_id-1] = msg.seq
 

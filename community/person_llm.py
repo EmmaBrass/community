@@ -32,7 +32,8 @@ class PersonLLM():
         agreeableness: int, 
         extraversion: int,
         history: str,
-        relationships: dict
+        relationships: dict,
+        personality: str
     ):
         self.name = name
         self.age = age
@@ -51,6 +52,7 @@ class PersonLLM():
         # Will need relationship objects to exist seperately somewhere... one object shared between two other objects and both
         # should be able to access and update it!
         # maybe these should be nodes?  relationship nodes?
+        self.personality = personality
         self.interactions = [] # create interactions list
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
@@ -74,14 +76,8 @@ class PersonLLM():
         intro_instructions = f"You embody a human, \
             with a full life and backstory.  You will assigned a group, in which you will \
             be placed with 1 to 5 other people.  You will all have a conversation.\
-            When a user message command is given, you should \
-            only response with NONE, unless the command contains 'RESPOND', i.e. only give a real response \
-            that is not NONE if the command is <RESPOND-JOINING>, <RESPOND-LEAVING>, or <RESPOND-NORMAL>; \
-            this is very important.\n\
-            If your response is not NONE, it should be slightly different every time.\n\
-            Your response should be quite dramatic and emotive.\n\
-            Use no more than about 30 words in a response.\n\
-            You will be given one of these commands:\n\
+            You will be given a command and then some more explanatory text. \n\
+            Here are all the possible commands:\n\
             <NEW GROUP> You have joined a new group and are told who else is in your current group.\n\
             <TEXT> Another member of your group is speaking. You will be given their name, and \
             the text for what they say.\n\
@@ -89,27 +85,36 @@ class PersonLLM():
             <MEMBER JOINED> You will be given the name of the person who has joined the group.\n\
             <RESPOND> It's your turn to speak.  You will be given specific instructions on \
             what sort of thing you should say. \n\
+            When a user message command is given, you should \
+            only response with NONE, unless the command is <RESPOND>. \n\
+            This is very important.\n\
+            If the command is <RESPOND>, your response should be different every time.\n\
+            Use no more than about 30 words in a response.\n\
             Before we start, here is some information about yourself.  \
             Your name is {self.name} and you are a {self.gender} and {self.age} years old.  \
-            To describe your personality, I will give you a score from 0 (low) \
-            to 10 (high) on each of the Big Five personality traits:\n\
-            openness: {self.big_five_traits['openness']}\n\
-            conscientiousness: {self.big_five_traits['conscientiousness']}\n\
-            neuroticism: {self.big_five_traits['neuroticism']}\n\
-            agreeableness: {self.big_five_traits['agreeableness']}\n\
-            extraversion: {self.big_five_traits['extraversion']}\n\
+            You should speak in a manner STRONGLY based on your personality description: \
+            {self.personality} \n\
             Here is a brief description of your life and imporant things that \
-            have happened to you: {self.history}.\n\
-            And here is a description of your relationships with people who you \
-            already know: {self.relationships}\n\
-            These relationships are important.  You should let your pre-existing relationship \
-            with a person largely guide how you interact with them if you are both in the same group \
-            conversation." #TODO try with and without reminder of past interactions w/ group members
+            have happened to you: {self.history}."
+            # And here is a description of your relationships with people who you \
+            # already know: {self.relationships}\n\
+            # These relationships are important.  You should let your pre-existing relationship \
+            # with a person largely guide how you interact with them if you are both in the same group \
+            # TODO need a way to integrate pre-existing relationship with evolving relationships 
+            # (bascially like a csv to initialise relationships in more advanced states.)
+            # conversation." #TODO try with and without reminder of past interactions w/ group members
             # TODO make these (apart from <RESPOND>) into function calls???
         self.api_key = "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"
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", self.api_key))
         self.create_assistant(intro_instructions)
         self.create_thread()
+            # To describe your personality, I will give you a score from 0 (low) \
+            # to 10 (high) on each of the Big Five personality traits:\n\
+            # openness: {self.big_five_traits['openness']}\n\
+            # conscientiousness: {self.big_five_traits['conscientiousness']}\n\
+            # neuroticism: {self.big_five_traits['neuroticism']}\n\
+            # agreeableness: {self.big_five_traits['agreeableness']}\n\
+            # extraversion: {self.big_five_traits['extraversion']}\n\
 
     def person_speaks(
         self, 
@@ -212,7 +217,7 @@ class PersonLLM():
         # Maybe not needed as teh story-writing will be directing things enough that 
         # a poor memory won't be noticable ?
         name = self.get_name_from_person_id(person_id)
-        response, message_id = self.add_user_message_and_get_response(f"<TEXT> {name} says: {text}")
+        response, message_id = self.add_user_message_and_get_response(f"<TEXT> {name} says this: {text}")
         if response != "NONE":
             print("Error! GPT not returning NONE for <TEXT> command.")
             print(response)
