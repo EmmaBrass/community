@@ -140,7 +140,7 @@ class PersonNode(Node):
             self.get_logger().info(str(msg.from_state))
             self.get_logger().info(str(msg.to_state))
             self.get_logger().info(str(msg.action))
-            prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action)
+            prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.transition_description)
             self.get_logger().info('////////////////////////////prompt_details')
             self.get_logger().info(str(prompt_details))
             # TODO a double check that the directed_to is actually in the group?

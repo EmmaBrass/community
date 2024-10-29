@@ -26,10 +26,10 @@ class RelationshipModel:
         """ Choose a random transition based on the probabilities """
         rand = random.random()
         cumulative_prob = 0
-        for state, prob in transitions.items():
-            cumulative_prob += prob
+        for state, details in transitions.items():
+            cumulative_prob += details['probability']
             if rand < cumulative_prob:
-                return state
+                return state, details['description']
         return None
 
     def random_action(self, actions):
@@ -140,6 +140,7 @@ class RelationshipMachine:
             'state_changed': False,
             'from_state': None,
             'to_state': None,
+            'transition_description': None,
             'action': None
         }
 
@@ -159,11 +160,12 @@ class RelationshipMachine:
             possible_transitions = self.get_possible_transitions(current_state)
 
             if possible_transitions:
-                next_state = self.model.random_transition(possible_transitions)
+                next_state, transition_description = self.model.random_transition(possible_transitions)
                 if next_state:
                     result['state_changed'] = True
                     result['from_state'] = current_state
                     result['to_state'] = next_state
+                    result['transition_description'] = transition_description
                     trigger_name = f"{current_state}_to_{next_state}"
                     self.trigger_transition(trigger_name)
                     print(f"State changed from '{current_state}' to '{next_state}'")

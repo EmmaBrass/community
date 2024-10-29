@@ -13,7 +13,7 @@ events: #TODO update parsing of this in gorup_convo_manager
     id: 1
     timestamp:
       hours: 0
-      minutes: 7
+      minutes: 2
       seconds: 0
     urgency: 70
 
@@ -22,7 +22,7 @@ events: #TODO update parsing of this in gorup_convo_manager
     id: 2
     timestamp:
       hours: 0
-      minutes: 25
+      minutes: 4
       seconds: 0
     urgency: 25
 
@@ -31,6 +31,6 @@ events: #TODO update parsing of this in gorup_convo_manager
     id: 3
     timestamp:
       hours: 0
-      minutes: 10
+      minutes: 6
       seconds: 0
     urgency: 95

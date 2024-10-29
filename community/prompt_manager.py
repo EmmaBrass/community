@@ -98,7 +98,17 @@ class PromptManager():
         else:
             raise LookupError("person not found!")
 
-    def get_prompt_details(self, message_type: int, directed_id: int, event_id: int, state_changed: bool, from_state: str, to_state: str, action: str):
+    def get_prompt_details(
+            self, 
+            message_type: int, 
+            directed_id: int, 
+            event_id: int, 
+            state_changed: bool, 
+            from_state: str, 
+            to_state: str, 
+            action: str, 
+            transition_description: str
+        ):
         """
         This person has been asked to speak.
         Looks at requested message type.
@@ -132,21 +142,21 @@ class PromptManager():
             prompt_details = ""
             # Get name of person the message is directed at using directed_id
             directed_name = self.get_name_by_id(directed_id)
-            prompt_details += f"This response will be directed at {directed_name}."
+            prompt_details += f"This response will be directed at {directed_name}; say their name in your response."
             # Check if state of the relationship has changed and comment on that
             if state_changed == True:
-                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}.  Comment on this!"
+                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}; say something like: {transition_description}"
             if action != 'None':
-                prompt_details += f"Say to the other person something like: {action}"
+                prompt_details += f"Say something like: {action}"
         elif MessageType(message_type).name == 'EVENT':
             # Use event_id to get event description and urgency and discuss it.  
             event_description = self.get_event_description_by_id(event_id)
             prompt_details = f"You just heard some news! {event_description} Talk about this."
             event_urgency = self.get_event_urgency_by_id(event_id)
             event_urgency_description = None
-            for _, value in self.event_urgency_dict:
+            for _, value in self.event_urgency_dict.items():
                 urgency_range = value['range']
-                if event_urgency > urgency_range[0] and event_urgency <= urgency_range[1]:
+                if urgency_range[0] < event_urgency <= urgency_range[1]:
                     event_urgency_description = value['description']
                     break
             if event_urgency_description != None:
@@ -155,53 +165,3 @@ class PromptManager():
                 print("Error! event_urgency_description not found.")
 
         return prompt_details
-
-
-
-    # Need like set formats for relationship types - maybe classes for these?  and state machines for these that get ticked through.  
-    # A TICK = an interaction !!! So for each interaction that this class sees, we will ask the state machine for that relationship to tick...
-    # hmmm no but state machine needs to be shared somehow... accessible by the people managers of both classes.  
-
-    # given the speech type from the groupconvomanager, 
-    # decide what to say
-    # update relationships from here
-    # Decide HOW a relationship is going to change, potentially based on num interactions in past.
-    # That change happens kind of DURING this turn and directly affect what insturctions we give the LLM.
-
-    #e.g. CHECK on all relationships with other gorup members and where they are at, check what action require dnext with any of them.
-    # check relationship.txt files, make some decision what to do based on the states of all those, update the .txt file, tell the LLM to comment on
-    # this action as appropriate.  
-    # Here is the engine for a person to make a decision what to sa next based on what was just said to them and what they want to do netx in their relationships.
-
-    # options: 
-    # Simple comment on existing topic - let the LLM say someting generic
-
-    # Comment on existing topic wih some input from own personality and interests
-
-    # A relationship update with the person who just spoke, comment is based on that.
-        # Maybe speeches can also have 'TYPES' - like a job offer, a recruitment drive, relationship proposal, friendship proposal, relationship break-up etc.
-        # I think yes to this.  This is passed through, followed by LLM, but also kept as a rigid data for a person to update their relationship txt files and 
-        # then decide how to respond...
-    #Hmmm or no, could also do a SEARCH for relationship updates with others.  e.g. the person who just spoke might also have just updated
-    # their relationship, and that needs to be taken into account... 
-    # Relationships could have like a 'last move' flag?  So the last person to make a directed comment between them is saved
-    # and then with this comment type, would only be done with relationships where it is this person's turn.
-
-    # Comment based on external event from event config file.
-
-
-
-    # messages should also be sent out with a reponse_priority variable...
-    # would be weird if a big event happened and then a person makes one comment on it and then the rest of the group just ignores
-    # and moves on to something else.
-
-
-    # This will be queried when someone else speaks to the person, AND right before the person is asked to speak.
-    # Is a kind of model of what mood that person is in.
-    # Also will access and update txt files with the information about the RELATIONSHIP this person has with all other people.
-
-    def check_relationships(self):
-        """
-        Check all existing relationships and flag those where it is 
-        this person's turn to speak.
-        """

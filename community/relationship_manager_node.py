@@ -32,6 +32,7 @@ class RelationshipManagerService(Node):
         response.from_state = str(result['from_state'])
         response.to_state = str(result['to_state'])
         response.action = str(result['action'])
+        response.transition_description = str(result['transition_description'])
         response.tick_id = tick_id
         self.get_logger().info("HERE4!")
         return response

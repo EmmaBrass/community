@@ -149,6 +149,7 @@ class RelationshipManager:
                 'state_changed': True,
                 'from_state': None,
                 'to_state': state_machine.get_current_state(),
+                'transition_description': None,
                 'action': None
             }
         else:

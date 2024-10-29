@@ -16,12 +16,17 @@ relationships:
         max_interactions: 5
         actions:
           tell_beautiful: 
-            description: "You are so beautiful."
-            probability: 0.40  # tell the other person they are beautiful
+            description: "You are really beautiful."
+            probability: 0.3  
+          tell_interesting:
+            description: "You are so interesting!  I just can't figure you out."
+            probability: 0.3
         transitions:
           dating:
+            description: "I would like to start dating you."
             probability: 0.80  # chance to transition to 'dating'
           no_relationship:
+            description: "I have enjoyed talking to you, but I'm not interested in a romantic sense."
             probability: 0.20  # chance to transition to 'no relationship'
 
       dating:
@@ -39,13 +44,15 @@ relationships:
             probability: 0.30   
         transitions:
           committed:
+            description: "I really like you, I think we should be in a committed relationship."
             probability: 0.70  # chance to transition to 'committed'
           breakup:
+            description: "I'm not really enjoying my time with you that much; we should stop dating."
             probability: 0.30  # chance to transition to 'breakup'
 
       committed:
-        min_interactions: 16
-        max_interactions: 30
+        min_interactions: 10
+        max_interactions: 20
         actions:
           discuss_living:
             description: "Maybe we should move in together now that our relationship is serious?"
@@ -54,26 +61,32 @@ relationships:
             description: "You always use way too much of the duvet and it's really inconsiderate."
             probability: 0.2   
           accuse_kiss: 
-            description: "I know you kissed our friend the other night when you were drunk, don't deny it."
+            description: "I know you kissed that person the other night when you were drunk, don't deny it."
             probability: 0.1     
         transitions:
           breakup:
+            description: "This ins't working out, we need to break up."
             probability: 0.50  # chance to transition to 'breakup'
           married:
+            desription: "Will you marry me?"
             probability: 0.50  # chance to transition to 'married'
 
       married:
-        min_interactions: 20
-        max_interactions: 50
+        min_interactions: 15
+        max_interactions: 30
         actions:
           bored_argument: 
             description: "To be honest, I'm getting a bit bored of you, sorry."
-            probability: 0.10  
+            probability: 0.15  
+          happy: 
+            description: "At the moment, I am enjoying our life together."
+            probability: 0.15  
           discuss_kids: 
             description : "Do you think we should have kids together one day?  I'm not sure how it would be possible though since we don't have bodies."
             probability: 0.20    
         transitions:
           divorcing:
+            description: "I want a divorce."
             probability: 1.0  # chance to transition to 'divorcing'
 
       breakup:
@@ -83,10 +96,15 @@ relationships:
           hate_you: 
             description: "I hate you so much, you are an awful person."
             probability: 0.60  
+          did_not_try: 
+            description: "I tried so hard to fix the relationship, but you never tried!  It's like you never cared."
+            probability: 0.60  
         transitions:
           no_relationship:
+            description: "Okay, wounds have healed, the negative feelings have passed."
             probability: 0.20  # 80% chance to move to 'no_relationship'
           exes:
+            description: "You are now my ex, as painful as that is."
             probability: 0.80  # 20% chance to transition to 'exes'
 
       divorcing:
@@ -96,11 +114,16 @@ relationships:
           wasted_life: 
             description: "I feel like the time I have spent with you has been a waste of my life."
             probability: 0.20  
+          confused: 
+            description: "I'm so confused, where did we go wrong?"
+            probability: 0.20  
+          sad: 
+            description: "It is really sad that we are separating but I know it's for the best."
+            probability: 0.20  
         transitions:
           no_relationship:
-            probability: 0.70  # 70% chance to transition to 'no_relationship'
-          exes:
-            probability: 0.30  # 30%
+            description: "Okay, wounds have healed, the negative feelings have passed."
+            probability: 1
 
       exes:
         min_interactions: 5
@@ -114,8 +137,10 @@ relationships:
             probability: 0.30
         transitions:
           no_relationship:
+            description: "Okay, wounds have healed, the negative feelings have passed."
             probability: 0.70  # 70% chance to transition to 'no_relationship'
           exes:
+            description: "You are still my ex and seeing you makes me uncomfortable."
             probability: 0.30  # 30%
 
 
@@ -133,7 +158,8 @@ relationships:
             probability: 0.10 
         transitions:
           getting_on:
-            probability: 1  # 80% chance to transition to 'getting_on'
+            description: "I enjoy spending time with you, you are a good friend to have."
+            probability: 1  
 
       getting_on:
         min_interactions: 6
@@ -144,10 +170,13 @@ relationships:
             probability: 0.04 
         transitions:
           long_friends:
-            probability: 0.5  # 70% chance to transition to 'long_friends'
+            description: "Wow we have been friends for quite a while now."
+            probability: 0.5 
           argument:
-            probability: 0.3  # 30% chance to transition to 'argument'
+            description: "You are starting to really annoy me."
+            probability: 0.3  
           no_relationship:
+            description: "You are a great person but we aren't that similar, I think we should go back to being just acquaintances."
             probability: 0.2
 
       argument:
@@ -159,20 +188,26 @@ relationships:
             probability: 0.2   # accuse the other person of being rude
         transitions:
           getting_on:
-            probability: 0.9  # 50% chance to become long-lost friends
+            description: "I am sad we have been arguing, let's go back to being friends again?"
+            probability: 0.7  # 50% chance to become long-lost friends
           argument:
+            description: "You are still really annoying me. I am trying my best here."
             probability: 0.1  # stay in an argument
+          no_relationship:
+            description: "To be honest, I don't think we should be friends anymore, let's go back to being just acquaintances."
+            probability: 0.2
 
       long_friends:
         min_interactions: 21
         max_interactions: 50
         actions:
           grateful: 
-            description: "I am so grateful to have you as a friend."
+            description: "I am so grateful to have had you as a friend for so long."
             probability: 0.10
           how_long: 
             description: "Wow, how long have we known each other?  It feels like forever."
             probability: 0.20
         transitions:
           argument:
+            description: "I know we have been friends for a long time, but recently you are starting to really annoy me."
             probability: 1  # have an argument

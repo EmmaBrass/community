@@ -280,6 +280,7 @@ class GroupNode(Node):
                     msg.from_state = response.from_state
                     msg.to_state = response.to_state
                     msg.action = response.action
+                    msg.transition_description = response.transition_description
                     msg.event_id = event_id
                     msg.person_id = person_id
                     msg.message_type = message_type
@@ -371,8 +372,8 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
-        self.get_logger().info(str(self.last_speech_completed))
-        self.get_logger().info(str(self.last_text_recieved))
+        # self.get_logger().info(str(self.last_speech_completed))
+        # self.get_logger().info(str(self.last_text_recieved))
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
         if self.last_speech_completed == True and len(self.speak_list) != 0:
