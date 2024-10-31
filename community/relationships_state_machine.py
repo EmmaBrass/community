@@ -48,6 +48,7 @@ class RelationshipMachine:
     def __init__(self, relationship_type):
         # Load the relationship config from the YAML file
         self.relationship_config = load_relationships_from_yaml()
+        self.relationship_type = relationship_type
 
         # Create the model that will store state
         self.model = RelationshipModel()
@@ -175,8 +176,8 @@ class RelationshipMachine:
 
     def get_possible_transitions(self, state):
         """ Return the possible transitions for a given state with their probabilities """
-        state_details = self.relationship_config.get('romantic_relationship', {}).get('states', {}).get(state, {})
-        return {next_state: details['probability'] for next_state, details in state_details.get('transitions', {}).items()}
+        state_details = self.relationship_config.get(str(self.relationship_type), {}).get('states', {}).get(state, {})
+        return {next_state: details for next_state, details in state_details.get('transitions', {}).items()}
 
     def get_current_state(self):
         """ Get the current state of the relationship """

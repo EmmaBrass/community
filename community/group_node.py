@@ -229,7 +229,6 @@ class GroupNode(Node):
         msg.directed_id = directed_id 
         for i in range(5):
             self.person_text_request_publisher.publish(msg)
-        self.get_logger().info('here5')
         self.last_text_recieved = False
 
     def text_request_with_relationship(self, person_id, directed_id, event_id, message_type):
@@ -253,16 +252,14 @@ class GroupNode(Node):
         request.person_b = directed_id
         request.group_id = self.group_id
         request.group_members = self.group_members
-        self.get_logger().info("here7")
 
         # Send the request to the service and wait for the response
-        future = self.tick_get_relationship_client.call_async(request) #TODO not working !!! -> make a ros_test_env and play with this. read documentation.
+        future = self.tick_get_relationship_client.call_async(request)
         # rclpy.spin_until_future_complete(self, future)
         future.add_done_callback(lambda future: self.handle_tick_get_relationship_response(future, event_id, person_id, message_type, directed_id))
 
     # Define the callback function to handle the response:
     def handle_tick_get_relationship_response(self, future, event_id, person_id, message_type, directed_id):
-        self.get_logger().info("here8")
         try:
             response = future.result()
             if response:
@@ -270,7 +267,6 @@ class GroupNode(Node):
                 # Check if the request was successful
                 if future.result() is not None:
                     response = future.result()
-                    self.get_logger().info("here11")
                     msg = PersonTextRequest()
                     msg.seq = self.text_seq
                     msg.group_id = self.group_id
@@ -287,7 +283,6 @@ class GroupNode(Node):
                     msg.directed_id = directed_id 
                     for i in range(5):
                         self.person_text_request_publisher.publish(msg)
-                    self.get_logger().info('here5')
                     self.last_text_recieved = False
                 else:
                     self.get_logger().error("Failed to call tick_get_relationship service")
@@ -372,8 +367,8 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
-        # self.get_logger().info(str(self.last_speech_completed))
-        # self.get_logger().info(str(self.last_text_recieved))
+        self.get_logger().info(str(self.last_speech_completed))
+        self.get_logger().info(str(self.last_text_recieved))
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
         if self.last_speech_completed == True and len(self.speak_list) != 0:
@@ -406,7 +401,6 @@ class GroupNode(Node):
         # Send a a request to a person for TEXT
         # TODO ever a case where we send a person too many text requests?
         if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
-            self.get_logger().info('here1')
             
             if len(self.speak_list) != 0:
                 # Get last_speaker, second_last_speaker, and last_message_directed from speech list
@@ -434,10 +428,8 @@ class GroupNode(Node):
                 second_last_speaker = 0
             person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
             if directed_id != 0:
-                self.get_logger().info('here34')
                 self.text_request_with_relationship(person_id, directed_id, event_id, message_type)
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
-                self.get_logger().info('here4') 
             else:
                 self.text_request_no_relationship(person_id, directed_id, event_id, message_type)
             

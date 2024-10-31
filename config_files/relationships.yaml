@@ -9,7 +9,7 @@ relationships:
 
   # Romantic relationship probabilities
   romantic_relationship:
-    chance_to_start: 0.15  # chance to start a romantic relationship
+    chance_to_start: 1  # chance to start a romantic relationship
     states:
       meeting:
         min_interactions: 2
@@ -146,7 +146,7 @@ relationships:
 
   # Friendship relationship probabilities
   friendship_relationship:
-    chance_to_start: 0.40  # 40% chance to start a friendship
+    chance_to_start: 0  # 40% chance to start a friendship
     long_lost_trigger_duration: 100  # If no interaction for 100 interactions, they become 'long_lost'
     states:
       new_friends:
@@ -162,8 +162,8 @@ relationships:
             probability: 1  
 
       getting_on:
-        min_interactions: 6
-        max_interactions: 20
+        min_interactions: 5
+        max_interactions: 10
         actions:
           gossip: 
             description: "Oh tell me the most recent gossip.  I love gossip."
@@ -180,8 +180,8 @@ relationships:
             probability: 0.2
 
       argument:
-        min_interactions: 2
-        max_interactions: 30
+        min_interactions: 3
+        max_interactions: 15
         actions:
           rude: 
             description: "To be honest I have come to the conclusion that you are a rude person, and I don't like it."
@@ -198,8 +198,8 @@ relationships:
             probability: 0.2
 
       long_friends:
-        min_interactions: 21
-        max_interactions: 50
+        min_interactions: 10
+        max_interactions: 20
         actions:
           grateful: 
             description: "I am so grateful to have had you as a friend for so long."

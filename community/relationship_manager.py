@@ -182,8 +182,10 @@ class RelationshipManager:
         # Normalize chances and pick based on probabilities
         pick = random.uniform(0, total_chance)
         if pick <= romantic_chance:
+            print("STARTING ROMANTIC RELATIONSHP")
             return 'romantic_relationship'
         else:
+            print("STARTING FRIENDSHIP RELATIONSHP")
             return 'friendship_relationship'
 
     def setup_relationship_machine(self):

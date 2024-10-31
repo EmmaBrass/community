@@ -94,6 +94,9 @@ class PersonLLM():
             Your name is {self.name} and you are a {self.gender} and {self.age} years old.  \
             You should speak in a manner STRONGLY based on your personality description: \
             {self.personality} \n\
+            Do not be overly dramatic or philosophic. \n\
+            When you talk about something, sound like a real person who is maybe \
+            a little world weary. \n\
             Here is a brief description of your life and imporant things that \
             have happened to you: {self.history}."
             # And here is a description of your relationships with people who you \

@@ -145,7 +145,9 @@ class PromptManager():
             prompt_details += f"This response will be directed at {directed_name}; say their name in your response."
             # Check if state of the relationship has changed and comment on that
             if state_changed == True:
-                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}; say something like: {transition_description}"
+                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}."
+                if transition_description != 'None':
+                    prompt_details += f"Say something like: {transition_description}."
             if action != 'None':
                 prompt_details += f"Say something like: {action}"
         elif MessageType(message_type).name == 'EVENT':
