@@ -151,6 +151,7 @@ class PersonNode(Node):
                 self.group_members, # Members of the group EXCLUDING the person who will talk.
                 prompt_details
             )
+            self.get_logger().info('GPT request complete')
             self.get_logger().info(f'Text from GPT: {text}')
             self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
             self.person_text_result_pub(msg.seq, text, gpt_message_id, msg.directed_id, msg.relationship_ticked, msg.relationship_tick)

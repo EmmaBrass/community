@@ -172,6 +172,7 @@ class GroupNode(Node):
         """
         # Only do anything if there are some unpublished messages in speak_list
         if len(self.speak_list) > 0:
+            self.get_logger().info('Removing unspoken messages in speak list.')
             
             # Collect unique person_id entries from the right side of the list
             unique_person_ids = set()  # To store the unique person_ids
@@ -188,6 +189,7 @@ class GroupNode(Node):
                     })
 
             # Publish a DeleteGptMessageId msg for each item in result list
+            self.get_logger().info('Publishing a DeleteGptMessageId msg for each item in result list.')
             for item in result:
                 msg = DeleteGptMessageId()
                 msg.seq = self.delete_seq
@@ -201,6 +203,7 @@ class GroupNode(Node):
             # Only do if something has been spoken already
             if len(self.spoken_list) != 0:
                 # Rewind relationships to tick in last item in spoken_list
+                self.get_logger().info('Rewinding relationships to tick in last item in spoken_list.')
                 rewind_tick = None
                 for num, _ in enumerate(self.spoken_list):
                     # Find the last item where the relationships were actually ticked
@@ -208,9 +211,8 @@ class GroupNode(Node):
                         rewind_tick = self.spoken_list[-(num+1)]['relationship_tick']
                         break
                 if rewind_tick != None:
-                    success = self.call_rewind_relationship(self.group_id, rewind_tick, self.group_members)
-                    if success != True:
-                        self.get_logger().error("call_rewind_relationship failed!")
+                    self.call_rewind_relationship(self.group_id, rewind_tick, self.group_members)
+                    
 
 
     def text_request_no_relationship(self, person_id, directed_id, event_id, message_type):
@@ -302,6 +304,7 @@ class GroupNode(Node):
         
         :returns: True or False, whether the rewind request succeeded or not.
         """
+        self.get_logger().info(f"Calling the RelationshipManager service to rewind the relationships for this group to a given tick.")
         # Create a request message
         request = RelationshipAction.Request()
         request.group_id = group_id
@@ -310,16 +313,20 @@ class GroupNode(Node):
 
         # Send the request to the service and wait for the response
         future = self.rewind_relationship_client.call_async(request)
-        rclpy.spin_until_future_complete(self, future)
+        future.add_done_callback(lambda future: self.call_rewind_relationship_callback(future))
 
+    def call_rewind_relationship_callback(self, future):
         # Check if the request was successful
         if future.result() is not None:
             response = future.result()
             self.get_logger().info(f"Rewind successful: {response.success}")
-            return True
+            success = True
         else:
             self.get_logger().error("Failed to call rewind_relationship service")
-            return False
+            success = False
+        
+        if success != True:
+            self.get_logger().error("call_rewind_relationship failed!")
 
     def person_text_result_callback(self, msg):
         """
@@ -367,7 +374,9 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
+        self.get_logger().info("self.last_speech_completed")
         self.get_logger().info(str(self.last_speech_completed))
+        self.get_logger().info("self.last_text_recieved")
         self.get_logger().info(str(self.last_text_recieved))
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.

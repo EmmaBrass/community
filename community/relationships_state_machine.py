@@ -179,7 +179,7 @@ class RelationshipMachine:
         state_details = self.relationship_config.get(str(self.relationship_type), {}).get('states', {}).get(state, {})
         return {next_state: details for next_state, details in state_details.get('transitions', {}).items()}
 
-    def get_current_state(self):
+    def     get_current_state(self):
         """ Get the current state of the relationship """
         return self.model.state
 

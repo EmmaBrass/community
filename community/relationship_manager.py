@@ -1,4 +1,4 @@
-import random, yaml, os
+import random, yaml, os, copy
 
 import community.configuration as config
 from community.relationships_state_machine import RelationshipMachine
@@ -90,8 +90,9 @@ class RelationshipManager:
                     idx_a = self.person_ids.index(member_a)
                     idx_b = self.person_ids.index(member_b)
 
-                    # Store the relationship machine at the location of member_a and member_b in the matrix
-                    filtered_relationships[(member_a, member_b)] = self.relationships_matrix[idx_a][idx_b]
+                    # Make a deepcopy of the relationship machine at the location of member_a and member_b in the matrix
+                    relationship_machine = self.relationships_matrix[idx_a][idx_b]
+                    filtered_relationships[(member_a, member_b)] = copy.deepcopy(relationship_machine)
 
         # Store the snapshot for this tick and group
         snapshot = {
@@ -134,10 +135,17 @@ class RelationshipManager:
         """
         Tick the relationship between two people on by one. 
         Return a result with info about the state of the relationship and any actions.
+
+        :param person_a: First person (person who will speak)
+        :param person_b: Second person (person who is spoken to)
+        :param group_id: The group id of the group these two people are in
+        :param group_members: ALL people in the group (including the speakers)
+
+        :return result: Dict with info about the new relationship
+        :return tick_id: Tick id for the relationship iteration number
         """
-        # Get the index from the initial list of people in the config yaml file, for standardisation
-        idx_a = self.person_ids.index(person_a)
-        idx_b = self.person_ids.index(person_b)
+        # Get indices for both people, and ensure idx_a < idx_b
+        idx_a, idx_b = sorted([self.person_ids.index(person_a), self.person_ids.index(person_b)])
 
         relationship_machine = self.relationships_matrix[idx_a][idx_b]
         # If no relationship, maybe start one

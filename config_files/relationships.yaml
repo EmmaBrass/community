@@ -68,7 +68,7 @@ relationships:
             description: "This ins't working out, we need to break up."
             probability: 0.50  # chance to transition to 'breakup'
           married:
-            desription: "Will you marry me?"
+            description: "Will you marry me?"
             probability: 0.50  # chance to transition to 'married'
 
       married:

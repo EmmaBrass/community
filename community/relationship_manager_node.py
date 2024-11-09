@@ -20,7 +20,7 @@ class RelationshipManagerService(Node):
         Tick the relationship between two people,
         and return the state of that relationship.
         """
-        self.get_logger().info("HERE in relationship manager node!")
+        self.get_logger().info("Calling tick_get_relationship for relationship_manager.")
         person_a = request.person_a
         person_b = request.person_b
         group_id = request.group_id
@@ -41,6 +41,7 @@ class RelationshipManagerService(Node):
         """
         Rewind all relationships for a group back to a tick_id.
         """
+        self.get_logger().info("Rewinding relationships for a group back to a given tick_id..")
         group_id = request.group_id
         tick_id = request.tick_id
         group_members = request.group_members
