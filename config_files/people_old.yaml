@@ -7,6 +7,11 @@ people:
     voice_id: "en_GB-alba-medium.onnx"
     gender: "female"
     age: 30
+    openness: 75
+    conscientiousness: 80
+    neuroticism: 40
+    agreeableness: 90
+    extraversion: 60
     history: "I love to garden."
     personality: "I am shy and excitable and very giggly! Hehe!"
     relationships:

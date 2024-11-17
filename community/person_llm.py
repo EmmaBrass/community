@@ -73,8 +73,8 @@ class PersonLLM():
         Create the GPT instance and feed it the intro_instructions and
         initial data and history for the person.
         """
-        intro_instructions = f"You embody a human, \
-            with a full life and backstory.  You will assigned a group, in which you will \
+        intro_instructions = f"You embody a human. \
+            You will assigned a group, in which you will \
             be placed with 1 to 5 other people.  You will all have a conversation.\
             You will be given a command and then some more explanatory text. \n\
             Here are all the possible commands:\n\

@@ -15,11 +15,11 @@ relationships:
         min_interactions: 2
         max_interactions: 5
         actions:
-          tell_intrigue: 
-            description: "Your questions about the world really intrigue me."
+          tell_beautiful: 
+            description: "You are really beautiful."
             probability: 0.3  
           tell_interesting:
-            description: "You are so interesting!  I can't believe you think about the world like that."
+            description: "You are so interesting!  I just can't figure you out."
             probability: 0.3
         transitions:
           dating:
@@ -34,13 +34,13 @@ relationships:
         max_interactions: 15
         actions:
           discuss_future: 
-            description: "Where is this relationship headed?  Do our questions indicate an aligned view of life?"
+            description: "Where is this relationship headed?  What is our future?"
             probability: 0.20   
           text_argument: 
-            description: "I think you have been discussing your questions with your ex and I think that's really inappropriate."
+            description: "I think you have been texting your ex and I think that's really inappropriate."
             probability: 0.20    
           anyone_like_you: 
-            description: "I have never met anyone as thoughtful and curious as you."
+            description: "I have never met anyone as amazing as you."
             probability: 0.30   
         transitions:
           committed:
@@ -55,17 +55,17 @@ relationships:
         max_interactions: 20
         actions:
           discuss_living:
-            description: "Maybe we should move in together now that our relationship is serious?  It will help us to better solve our questions."
+            description: "Maybe we should move in together now that our relationship is serious?"
             probability: 0.15    
           duvet_argument: 
-            description: "You don't always consider my question adequately and it's really inconsiderate."
+            description: "You always use way too much of the duvet and it's really inconsiderate."
             probability: 0.2   
           accuse_kiss: 
-            description: "I know you gossiped with someone else about my question when you were drunk, don't deny it."
+            description: "I know you kissed that person the other night when you were drunk, don't deny it."
             probability: 0.1     
         transitions:
           breakup:
-            description: "This isn't working out, we need to break up."
+            description: "This ins't working out, we need to break up."
             probability: 0.50  # chance to transition to 'breakup'
           married:
             description: "Will you marry me?"
