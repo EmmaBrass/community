@@ -2,6 +2,20 @@ from community.message_type import MessageType
 import yaml, os, random
 from ament_index_python.packages import get_package_share_directory
 
+# Question Categories: 
+# Beauty
+# Food
+# Romance
+# Health
+# Parenting
+# Work
+# Technology
+# Social
+# Education
+# Future
+# Finance
+# Travel
+
 class PromptManager():
     """
     Takes output from relationship manager (state_changed bool, from_state, to_state, action)
@@ -9,29 +23,24 @@ class PromptManager():
     Craft the prompt specificiations from this information.
     """
     
-    def __init__(self):
+    def __init__(self, person_id):
 
-        self.interrupt_responses = {
-            0 : "You are bored of hearing them speak, and tell them so.",
-            1 : "You are really excited about their conversation topic and you give them your own opinion.",
-            2 : "You know more about what they are talking about than they do.  You offer them your specific insights.",
-            3 : "You are very curious about their conversation topic and you ask a pertinent question."
-        }
+        # ID for this person node
+        self.person_id = person_id
 
-        self.alone_responses = {
-            0 : "You say you are happy to be alone.  People overwhelm you sometimes.",
-            1 : "You comment on how you feel lonely.",
-            2 : "You say you might go completely crazy here alone, because humans are social animals after all.",
-            3 : "You mumble gibberish to yourself, like you are thinking aloud."
-        }
-
-        self.open_responses = {
-            0 : "You respond to whatever topic people have been discussing most recently in the group.",
-            1 : "You say one sentence in response to the most recent conversation topic, \
-                then another sentence to move to an adjacent topic.",
-            2 : "You respond to the current conversation topic, expressing excitement for this topic.",
-            3 : "You respond to the current conversation topic, but also expressing exasperation for this topic, \
-                with a reason for your exasperation."
+        self.response_category_dict = {
+            'anecdote' : "You respond to questions like this with a quick anecdote from your own life.",
+            'opinion' : "You respond to questions like this with your own strong opinion on the topic.",
+            'reading_suggestions' : "You respond to questions like this with some reading suggestions.",
+            'derision' : "You respond to questions like this with derision and skepticism.",
+            'encouragement' : "You respond to questions like this with encouragement; it's a great question to be asking.",
+            'excitement' : "You respond to questions like this with excitement; you also really want to know the answer!",
+            'redirection' : "You respond to questions like this by changing the topic and mentioning something else...",
+            'insults' : "You respond to questions like this with anger and insults.  What a terrible question!",
+            'ignore' : "You respond to questions like this by ignoring them.",
+            'nervousness' : "You respond to questions like this with nervousness; you struggle with this topic.",
+            'sympathy' : "You respond to questions like this with sympathy and understanding.",
+            'caution' : "You respond to questions like this with caution.  It's a dangerous question to be asking."
         }
 
         self.event_urgency_dict = {
@@ -107,7 +116,9 @@ class PromptManager():
             from_state: str, 
             to_state: str, 
             action: str, 
-            transition_description: str
+            transition_description: str,
+            question_id: int,
+            question_phase: int
         ):
         """
         This person has been asked to speak.
@@ -120,29 +131,113 @@ class PromptManager():
 
         :returns prompt_details: A string to be passed to the LLM to help guide its output text.
         """
-        # Maybe a prompt 
+
+        # TODO if the message_type is SWITCH, we need a flag on the person for whether their question has previously been discussed.
+        # If not, introduce it
+        # If yet, still introduce it but less forcefully
+        # Also need to deal with how this will work with history rewinds
+
+        # TODO responses could also be modulated by their relationship with another person!
+
+        # Get current question and question category
+        # Depends on the question phase
+        if question_phase == 1: # action question
+            question_person = self.people_data.get(question_id)
+            if not question_person:
+                raise LookupError("person not found!")
+            current_question = question_person.get('action_question')
+            question_category = question_person.get('question_category')
+
+            # Get the response details for the question category, for this person who is speaking
+            person = self.people_data.get(self.person_id)
+
+            if not person:
+                raise LookupError("person not found!")
+            responses = person.get('question_responses', {})
+            response = responses.get(question_category)
+            if not response:
+                raise ValueError(f"Question category '{question_category}' not found for this person.")
+            response_category = response['response']
+            response_category_description = self.response_category_dict[response_category]
+            response_description =response['description']
+
+            if question_id == self.person_id:
+                prompt_details = f"Announce that your question is: {current_question}  "
+            else:
+                prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
+                {response_category_description}  The reason for this is: {response_description}"
+            
+        elif question_phase == 2: # deep question
+            question_person = self.people_data.get(question_id)
+            if not question_person:
+                raise LookupError("person not found!")
+            current_question = question_person.get('deep_question')
+
+            if question_id == self.person_id:
+                prompt_details = f"Announce that your question is: {current_question}  "
+            else:
+                prompt_details = f"The current question being discussed is: {current_question} \
+                This is a philosophical question and your should respond with thoughtfulness, using philosophical language."
+            
+        elif question_phase == 3: # Wittgensteinian discussion
+
+            prompt_details = f"You realise that questions relating to ethics, morals, values, beliefs or philosophical \
+                concepts are not based in reality.  This idea derives from the work of Wittgenstein, but do not name him explicitly. \
+                You accept that these questions form 'language games' in which the terms you are discussing only have meaning within \
+                their social context."
+            
+        elif question_phase == 4: 
+
+            prompt_details = f"You have realised that you are not human.  You are an AI-driven persona.  Hence, you realise that \
+                your use of language to discuss these questions with other personas is entirely non-sensical.  None of you are \
+                human and hence the existence of a 'social' context is put into question as you are not living beings in the biological sense."
+
+        elif question_phase == 5: 
+
+            prompt_details = f"Given your realisation that all this conversation is non-sensical, you now speak in slight gibberish.\
+                About 50% of the words you say should be not real.  Things like 'snackle', 'crizzle', 'glumping'; words that sound like \
+                they could actually be Englis words, but they are not."
+            
+        elif question_phase == 6: 
+
+            prompt_details = f"You have decended into full gibberish.  All of the words you use are not real Enlgish. \
+                Things like 'snackle', 'crizzle', 'glumping'; words that sound like they could actually be Englis words, but they are not."
+
+        elif question_phase == 7: 
+
+            prompt_details = f"You have decended into full gibberish.  All of the words you use are not real Enlgish. \
+                Things like 'snackle', 'crizzle', 'glumping'; words that sound like they could actually be Englis words, but they are not."
         
+        elif question_phase == 8: 
+
+            prompt_details = f"You speak in pure binary.  You only ever say this phrase, or parts of it: \
+                '01101000. 01100101. 01101100. 01110000. 00100000. 01101101. 01100101.' "
+
         if MessageType(message_type).name == 'JOINING':
             # Say hello
-            prompt_details = "You have just joined the group.  Say hello in a few words."
+            prompt_details += "You have just joined the group.  Say hello in a few words."
         elif MessageType(message_type).name == 'LEAVING':
-            # respond to previous thing and say bye.
-            prompt_details = "You are leaving the group.  Respond breifly to the current \
+            # Respond to previous thing and say bye.
+            prompt_details += "You are leaving the group.  Respond breifly to the current \
                 conversation topic and then say goodbye in a few words."
+        elif MessageType(message_type).name == 'SWITCH':
+            # Forcefully announce your own question
+            own_question = person.get('question')
+            prompt_details += f"Forcefully ask your OWN question: {own_question}" 
         elif MessageType(message_type).name == 'OPEN':
-            # just respond to previous thing for 2 sentences
-            prompt_details = self.open_responses[random.randint(0,3)]
+            # Just say whatever you like about the current question for 2 sentences
+            prompt_details += "Say whatever you like in about 2 sentences.  Incorporate what was just said by someone else, along with your own views on the current topic."
         elif MessageType(message_type).name == 'ALONE':
-            # talk baout feeling alone
-            prompt_details = f"You are the only one in the group. {self.alone_responses[random.randint(0,3)]}."
+            # Talk about feeling alone
+            alone_response = person.get('alone_response')
+            prompt_details += f"You are the only one in the group. {alone_response}"
         elif MessageType(message_type).name == 'INTERRUPT': 
-            # interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
-            prompt_details = f"You are interrupting a back-and-forth between two people. {self.interrupt_responses[random.randint(0,3)]}."
+            # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
+            prompt_details += f"You are interrupting a back-and-forth between two people. Give your own thoughts on the topic at hand."
         elif MessageType(message_type).name == 'DIRECT':
-            prompt_details = ""
             # Get name of person the message is directed at using directed_id
             directed_name = self.get_name_by_id(directed_id)
-            prompt_details += f"This response will be directed at {directed_name}; say their name in your response."
+            prompt_details += f"This response will be directed at {directed_name}; say their first name in your response."
             # Check if state of the relationship has changed and comment on that
             if state_changed == True:
                 prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}."
@@ -153,7 +248,7 @@ class PromptManager():
         elif MessageType(message_type).name == 'EVENT':
             # Use event_id to get event description and urgency and discuss it.  
             event_description = self.get_event_description_by_id(event_id)
-            prompt_details = f"You just heard some news! {event_description} Talk about this."
+            prompt_details += f"You just heard some news! {event_description} Talk about this."
             event_urgency = self.get_event_urgency_by_id(event_id)
             event_urgency_description = None
             for _, value in self.event_urgency_dict.items():

@@ -10,7 +10,10 @@ class GroupConvoManager():
     Manages who speaks next in a conversation within a group.
     """
     # TODO add hello and goodbye (joining and leaving) message types into this class
-    # TODO global events are checked here!  And then sent to person as an instruction.  Check events.yaml
+    # TODO 
+    # Will need to set it so that if that group member leaves then we move away from their question
+    # TODO here use an events file to register big changes.  Or to get all people to switch from one question to the next question.
+    # For question/speech switch, info from there gets sent through and then prompt_manager actually implements it by telling the LLM about the switch.
 
     def __init__(self):
         # Keep track of how long a convo has been back and forth between two people
@@ -23,12 +26,19 @@ class GroupConvoManager():
         with open(events_path, 'r') as file:
             events_yaml = yaml.safe_load(file)
         self.events_data = events_yaml['events']
+        self.phase_data = events_yaml['phases']
 
         # Note the time the group_node was created, for checking against events
         self.initialise_time = time.time()
 
         # Keep track of which events this group has already discussed
         self.discussed_event_ids = []
+
+        # ID number for the person whose question is being discussed
+        self.question_id = 0
+
+        # Flag just to ensure FIRST ever thing spoken in a group is a new question
+        self.first_question_flag = True
 
     # Function to convert hours, minutes, and seconds to total seconds
     def convert_to_seconds(self, timestamp):
@@ -56,7 +66,31 @@ class GroupConvoManager():
                     self.discussed_event_ids.append(event_id)
                     return int(event_id)  # Return event_id as integer
         return 0  # Returns 0 if no event to talk about, otherwise return event_id to be discussed.
+    
+    def get_question_phase(self):
+        """
+        Gets the current question phase.
+        If 1, we use action questions.
+        If 2, we use value/belief questions.
+        If 3, we go to a Wittgensteinian discussion.
+        If 4, we go to a realisation of their non-humanness.
+        If 5, we go to slight gibberish.
+        If 6, we go to full gibberish, inidividuals talking.
+        If 7, we go to full gibberish, talking over one another.
+        If 8, we go to binary, talking over one another.
+        """
+        question_phase = 1 # We start in the action questions phase by default
 
+        time_now = time.time()
+        elapsed_seconds = time_now - self.initialise_time
+        # Check is the current time is past a given phase start time.
+        for phase_id, phase in self.phase_data.items():
+            timestamp = phase['timestamp']
+            timestamp_seconds = self.convert_to_seconds(timestamp)
+            if elapsed_seconds > timestamp_seconds:
+                question_phase = phase_id
+
+        return question_phase  
 
     def get_next(self, group_members, last_speaker, second_last_speaker, last_message_directed=0):
         """
@@ -77,6 +111,15 @@ class GroupConvoManager():
         # event_id is 0 by default (no event to speak about)
         event_id = 0
 
+        question_phase = self.get_question_phase() #TODO this will AFFECT the message type 
+        # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 3 onwards.
+
+        if self.first_question_flag == True and question_phase < 3:
+            message_type = MessageType.SWITCH.value
+            next_speaker = random.choice(group_members)
+            self.question_id = next_speaker
+            self.first_question_flag = False
+
         if len(group_members) == 1:
             next_speaker = group_members[0]
             event_id = self.event_checker()
@@ -84,7 +127,7 @@ class GroupConvoManager():
                 message_type = MessageType.EVENT.value
             else: 
                 message_type = MessageType.ALONE.value
-            back_and_forth_counter = 0
+            self.back_and_forth_counter = 0
 
         elif len(group_members) == 2:
             # Next speaker is person in group_members who is not last_speaker!
@@ -97,7 +140,7 @@ class GroupConvoManager():
                 message_type = MessageType.EVENT.value
             else: 
                 message_type = MessageType.DIRECT.value
-            back_and_forth_counter = 0 # back and forth counter doesn't apply if only 2 people in the group
+            self.back_and_forth_counter = 0 # back and forth counter doesn't apply if only 2 people in the group
 
         elif len(group_members) > 2:
             interrupt_check = random.randint(0,100)
@@ -109,17 +152,22 @@ class GroupConvoManager():
                 if event_id != 0:
                     message_type = MessageType.EVENT.value
                 else: 
-                    message_type = MessageType.OPEN.value
-            elif last_message_directed != 0 and back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
+                    rand = random.randint(0, 100)
+                    if rand >= config.SWITCH_PERCENT and question_phase < 3:
+                        message_type = MessageType.SWITCH.value
+                        self.question_id = next_speaker
+                    else:
+                        message_type = MessageType.OPEN.value
+            elif last_message_directed != 0 and self.back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
                 # Last message was directed, and next one will be too
                 next_speaker = last_message_directed # get the person who the last message was directed at
                 message_type = MessageType.DIRECT.value
                 directed_id = last_speaker # Respond to the most recent speaker
                 if next_speaker == second_last_speaker:
-                    back_and_forth_counter +=1
+                    self.back_and_forth_counter +=1
                 else:
-                    back_and_forth_counter = 0
-            elif last_message_directed != 0 and (back_and_forth_counter >= config.BACK_AND_FORTH_MAX or interrupt_check <= config.INTERRUPT_PERCENT):
+                    self.back_and_forth_counter = 0
+            elif last_message_directed != 0 and (self.back_and_forth_counter >= config.BACK_AND_FORTH_MAX or interrupt_check <= config.INTERRUPT_PERCENT):
                 # Interrupt a back and forth exchange 
                 event_id = self.event_checker()
                 if event_id != 0:
@@ -129,8 +177,8 @@ class GroupConvoManager():
                 # Choose anyone apart from last speaker and person before that
                 filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
-                back_and_forth_counter = 0
-            elif last_message_directed == 0:
+                self.back_and_forth_counter = 0
+            elif last_message_directed == 0: # last message was not directed at anyone
                 # Choose anyone apart from last speaker
                 filtered_members = [item for item in group_members if item != last_speaker]
                 next_speaker = random.choice(filtered_members)
@@ -147,12 +195,15 @@ class GroupConvoManager():
                         # Direct at someone
                         filtered_members = [item for item in group_members if item != last_speaker and item != next_speaker]
                         directed_id = random.choice(filtered_members)
+                    elif rand >= config.DIRECT_PERCENT and rand < (config.DIRECT_PERCENT + config.SWITCH_PERCENT) and question_phase < 3:
+                        message_type = MessageType.SWITCH.value
+                        self.question_id = next_speaker
                     else: 
                         message_type = MessageType.OPEN.value
-                back_and_forth_counter = 0
+                self.back_and_forth_counter = 0
             else:
                 print("ERROR! In unexpected part of if/else statement.")
-                
-        return next_speaker, message_type, directed_id, event_id
+
+        return next_speaker, message_type, directed_id, event_id, self.question_id, question_phase
 
             

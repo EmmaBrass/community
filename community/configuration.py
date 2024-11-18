@@ -22,7 +22,7 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1,2]}
+    1 : {'pi_ids': [1,2,3,4]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
@@ -39,8 +39,11 @@ INTERRUPT_PERCENT = 20
 # How often (as a percentage of the time) a person directs a message at someone else precise, rather than just an open comment
 DIRECT_PERCENT = 40
 
+# How often (as a percentage of the time) a person switches to asking their own question, rather than just and open comment
+SWITCH_PERCENT = 30
+
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
-MAX_SPEAK_LIST_LEN = 6
+MAX_SPEAK_LIST_LEN = 5
 
 # If there are loads of events in a short space of time, a group will end up talking about an event way after it has happened
 # We have a check that (elapsed_seconds-event_timestamp) < MAX_EVENT_DISCUSS_WAIT (in seconds)

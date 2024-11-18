@@ -76,13 +76,13 @@ relationships:
         max_interactions: 30
         actions:
           bored_argument: 
-            description: "To be honest, I'm getting a bit bored of you, sorry."
+            description: "To be honest, I'm getting a bit bored of your approach to my question, sorry."
             probability: 0.15  
           happy: 
-            description: "At the moment, I am enjoying our life together."
+            description: "At the moment, I am enjoying our life together and you are helping me with my question."
             probability: 0.15  
           discuss_kids: 
-            description : "Do you think we should have kids together one day?  I'm not sure how it would be possible though since we don't have bodies."
+            description : "Do you think that having kids would help us solve our questions?"
             probability: 0.20    
         transitions:
           divorcing:
@@ -94,10 +94,10 @@ relationships:
         max_interactions: 5
         actions:
           hate_you: 
-            description: "I hate you so much, you are an awful person."
+            description: "I hate you so much, you have made my question feel so much more painful and unsolvable."
             probability: 0.60  
           did_not_try: 
-            description: "I tried so hard to fix the relationship, but you never tried!  It's like you never cared."
+            description: "I tried so hard to help you wiht your question, but you never tried!  It's like you never cared."
             probability: 0.60  
         transitions:
           no_relationship:
@@ -112,13 +112,13 @@ relationships:
         max_interactions: 10
         actions:
           wasted_life: 
-            description: "I feel like the time I have spent with you has been a waste of my life."
+            description: "I feel like the time I have spent with you has been a waste of my life.  I would have answers by now if I hadn't been with you."
             probability: 0.20  
           confused: 
-            description: "I'm so confused, where did we go wrong?"
+            description: "I'm so confused, where did we go wrong?  Why couldn't we solve our questions?"
             probability: 0.20  
           sad: 
-            description: "It is really sad that we are separating but I know it's for the best."
+            description: "It is really sad that we are separating but I know it's for the best.  We will find answers elsewhere."
             probability: 0.20  
         transitions:
           no_relationship:
@@ -130,10 +130,10 @@ relationships:
         max_interactions: 10
         actions:
           never_met: 
-            description: "I wish I never met you."
+            description: "I wish I never asked you my question."
             probability: 0.20  
           miss_you: 
-            description: "I miss you.  I miss seeing you every day."  
+            description: "I miss you.  I miss seeing your perspective on things."  
             probability: 0.30
         transitions:
           no_relationship:
@@ -154,11 +154,11 @@ relationships:
         max_interactions: 5
         actions:
           have_coffee: 
-            description: "We should get coffee together some time.  It might be hard with no stomach though."
+            description: "We should get coffee together some time.  I'll tell you more about the question I'm thinking about."
             probability: 0.10 
         transitions:
           getting_on:
-            description: "I enjoy spending time with you, you are a good friend to have."
+            description: "I enjoy spending time with you, you are have such a great perspective."
             probability: 1  
 
       getting_on:
@@ -166,17 +166,17 @@ relationships:
         max_interactions: 10
         actions:
           gossip: 
-            description: "Oh tell me the most recent gossip.  I love gossip."
+            description: "Oh tell me the most recent gossip.  I love hearing about your question."
             probability: 0.04 
         transitions:
           long_friends:
-            description: "Wow we have been friends for quite a while now."
+            description: "Wow we have been friends for quite a while now, moving towards our answers in parallel."
             probability: 0.5 
           argument:
-            description: "You are starting to really annoy me."
+            description: "You are starting to really annoy me.  You aren't giving me any straight answers!"
             probability: 0.3  
           no_relationship:
-            description: "You are a great person but we aren't that similar, I think we should go back to being just acquaintances."
+            description: "You are a great person but our questions aren't that similar, I think we should go back to being just acquaintances."
             probability: 0.2
 
       argument:
@@ -184,7 +184,7 @@ relationships:
         max_interactions: 15
         actions:
           rude: 
-            description: "To be honest I have come to the conclusion that you are a rude person, and I don't like it."
+            description: "To be honest I have come to the conclusion that you are a rude person, and I don't like it.  Your question is dumb."
             probability: 0.2   # accuse the other person of being rude
         transitions:
           getting_on:
@@ -202,10 +202,10 @@ relationships:
         max_interactions: 20
         actions:
           grateful: 
-            description: "I am so grateful to have had you as a friend for so long."
+            description: "I am so grateful to have had you as a friend for so long.  You have aided my thinking about my question so much."
             probability: 0.10
           how_long: 
-            description: "Wow, how long have we known each other?  It feels like forever."
+            description: "Wow, how long have we known each other?  Have either of us solved our questions yet?"
             probability: 0.20
         transitions:
           argument:

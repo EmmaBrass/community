@@ -26,11 +26,7 @@ class PersonLLM():
         name: str, 
         gender: str,
         age: int, 
-        openness: int, 
-        conscientiousness: int, 
-        neuroticism: int, 
-        agreeableness: int, 
-        extraversion: int,
+        question: str,
         history: str,
         relationships: dict,
         personality: str
@@ -38,13 +34,7 @@ class PersonLLM():
         self.name = name
         self.age = age
         self.gender = gender
-        self.big_five_traits = {
-            'openness': openness, 
-            'conscientiousness': conscientiousness,
-            'neuroticism': neuroticism,
-            'agreeableness': agreeableness,
-            'extraversion': extraversion
-        }
+        self.question = question
         self.history = history # Where they come from, their job, what they like and dislike.
         self.relationships = relationships # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
         # This means new relationships can be formed if a new person was in the group.  Maybe also a .txt file ?
@@ -76,8 +66,11 @@ class PersonLLM():
         intro_instructions = f"You embody a human. \
             You will assigned a group, in which you will \
             be placed with 1 to 5 other people.  You will all have a conversation.\
+            Your main aim is to answer your QUESTION. \
+            Your question right now is: {self.question}. \
             You will be given a command and then some more explanatory text. \n\
             Here are all the possible commands:\n\
+            <QUESTION> You are given a new question that you are trying to answer. \n\
             <NEW GROUP> You have joined a new group and are told who else is in your current group.\n\
             <TEXT> Another member of your group is speaking. You will be given their name, and \
             the text for what they say.\n\
@@ -96,10 +89,7 @@ class PersonLLM():
             Your response should be different every time.\n\
             Use no more than about 30 words in a response.\n\
             Before we start, here is some information about yourself.  \
-            Your name is {self.name} and you are a {self.gender} and {self.age} years old.  \
-            You should speak in a manner STRONGLY based on your personality description: \
-            {self.personality} \n\
-            Do not be overly dramatic or philosophic. \n\
+            Your name is {self.name} and you are a {self.gender} and {self.age} years old. \
             When you talk about something, sound like a real person who is maybe \
             a little world weary. \n\
             Here is a brief description of your life and imporant things that \

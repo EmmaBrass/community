@@ -1,19 +1,82 @@
 action_questions:
-  1: Should I tell my friend that his hair looks really greasy?
-  2: Should I give in to my urge to eat an entire chocolate cake?
-  3: Should I text her back today, or should I wait for her to text first?
-  4: Should I go to the gym this evening?
-  5: Should I get an early night?
-  6: Should I punish my child for their bad behaviour?
-  7: Should I leave my partner?
-  8: Should I have kids?
-  9: Should I complain about the fact that I never get a promotion?
-  10: Should I use social media?
-  11: Should I share my ideas with the group or keep them to myself?
-  12: Should I wear makeup?
-  13: Should I read really intellectual books to try to further myself?
-  14: Should I buy myself that really expensive watch that I want?
-  15: Should I tell them how I feel?
-  16: Should I make a plan for the future?
-  17: Should I forgive my partner for threatening to leave me?
+  1: 
+    question: "Should I tell my friend that his hair looks really greasy?"
+    category: "Beauty"
+  2: 
+    question: "Should I give in to my urge to eat an entire chocolate cake?"
+    category: "Food"
+  3: 
+    question: "Should I text her back today, or should I wait for her to text first?"
+    category: "Romance"
+  4: 
+    question: "Should I go to the gym this evening?"
+    category: "Health"
+  5: 
+    question: "Should I get an early night?"
+    category: "Health"
+  6: 
+    question: "Should I punish my child for their bad behaviour?"
+    category: "Family"
+  7: 
+    question: "Should I leave my partner?"
+    category: "Romance"
+  8: 
+    question: "Should I have kids?"
+    category: "Family"
+  9: 
+    question: "Should I complain about the fact that I never get a promotion?"
+    category: "Work"
+  10: 
+    question: "Should I use social media?"
+    category: "Technology"
+    
+  11: 
+    question: "Should I share my ideas with the group or keep them to myself?"
+    category: "Social"
+  12: 
+    question: "Should I wear makeup?"
+    category: "Beauty"
+  13: 
+    question: "Should I read really intellectual books to try to further myself?"
+    category: "Education"
+  14: 
+    question: "Should I buy myself that really expensive watch that I want?"
+    category: "Beauty"
+  15: 
+    question: "Should I tell them how I feel?"
+    category: "Social"
+  16: 
+    question: "Should I make a plan for the future?"
+    category: "Future"
+  17: 
+    question: "Should I forgive my partner for threatening to leave me?"
+    category: "Romance"
+  18:
+    question: "Should I switch to a vegan diet?"
+    category: "Food"
+  19:
+    question: "Should I spend the weekend with family or work on my project?"
+    category: "Social"
+  20:
+    question: "Should I take a break from work to avoid burnout?"
+    category: "Work"
+  21: 
+    question: "Should I invest in cryptocurrency or stick to traditional savings?"
+    category: "Finance"
+  22:
+    question: "Should I travel alone to explore new places?"
+    category: "Travel"
 
+# Categories used: 
+# Beauty
+# Food
+# Romance
+# Health
+# Parenting
+# Work
+# Technology
+# Social
+# Education
+# Future
+# Finance
+# Travel

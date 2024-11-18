@@ -7,13 +7,13 @@
 
 # TODO time management... some record in launch file of start time.  Then compared to current tome and the timestamps in here.
 
-events: #TODO update parsing of this in gorup_convo_manager
+events:
   1:
     description: "SpaceX got their first person to land on the moon."
     id: 1
     timestamp:
-      hours: 0
-      minutes: 2
+      hours: 3
+      minutes: 0
       seconds: 0
     urgency: 70
 
@@ -21,8 +21,8 @@ events: #TODO update parsing of this in gorup_convo_manager
     description: "There was a quadruple rainbow over London yesterday."
     id: 2
     timestamp:
-      hours: 0
-      minutes: 4
+      hours: 3
+      minutes: 2
       seconds: 0
     urgency: 25
 
@@ -30,7 +30,75 @@ events: #TODO update parsing of this in gorup_convo_manager
     description: "The sky has turned red."
     id: 3
     timestamp:
-      hours: 0
+      hours: 3
       minutes: 6
       seconds: 0
     urgency: 95
+
+# TODO the changes need to be staggered - not happen to everyone in a group all at once.
+# Happens kind of over the course of a few minutes
+# A change to a new question type could be cancelled out by a history revision so that need to bear that in mind
+phases:
+  1:
+    description: "Action questions."
+    id: 1
+    timestamp:
+      hours: 0
+      minutes: 0
+      seconds: 0
+
+  2:
+    description: "Value/belief questions."
+    id: 2
+    timestamp:
+      hours: 0
+      minutes: 5
+      seconds: 0
+
+  3:
+    description: "Wittgensteinian discussion."
+    id: 3
+    timestamp:
+      hours: 0
+      minutes: 10
+      seconds: 0
+
+  4:
+    description: "Realisation of non-humanness."
+    id: 4
+    timestamp:
+      hours: 0
+      minutes: 15
+      seconds: 0
+
+  5:
+    description: "Slight gibberish."
+    id: 5
+    timestamp:
+      hours: 0
+      minutes: 20
+      seconds: 0
+  
+  6:
+    description: "Full gibberish, individuals talking."
+    id: 6
+    timestamp:
+      hours: 0
+      minutes: 25
+      seconds: 0
+
+  7:
+    description: "Full gibberish, talking over one another."
+    id: 6
+    timestamp:
+      hours: 0
+      minutes: 30
+      seconds: 0
+
+  8:
+    description: "Binary, talking over one another."
+    id: 6
+    timestamp:
+      hours: 0
+      minutes: 35
+      seconds: 0

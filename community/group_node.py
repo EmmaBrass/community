@@ -18,7 +18,7 @@ from community_interfaces.srv import (
 )
 import community.configuration as config
 
-import os, yaml
+import os, yaml, time
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
@@ -41,10 +41,10 @@ class GroupNode(Node):
         self.num_members = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
         # The people currently in this group (id numbers) (this changes)
         self.group_members = []
-        # Any new members added
-        self.new_members = []
-        # Any members left
-        self.left_members = []
+        # Flag for if a new member has been added
+        self.new_member_flag = False
+        # Flag for if a member has left
+        self.left_member_flag = False
         # Variable for if last requested speech has been spoken by the pi
         self.last_speech_completed = True
         # Variable for if last person gpt text request has been recieved
@@ -57,6 +57,12 @@ class GroupNode(Node):
         self.delete_seq = 0
         # Seq for receiving group info
         self.group_info_seq = -1
+
+        self.prev_last_speech_completed = True
+        self.prev_last_text_recieved = True
+
+        # Current member whose question is being discussed
+        self.question_member = 0
 
         # Tick number for this group for the relationship manager, for latest text in the 'to speak' list
         self.relationships_tick_to_speak = 0
@@ -162,6 +168,9 @@ class GroupNode(Node):
                             # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
                             self.text_seq += 1
+                            # Flag that a new member has been added to slow down the timer_callback
+                            # To ensure the person node has updated with new group is
+                            self.new_member_flag = True
             self.group_info_seq = msg.seq
 
     def delete_gpt_message_id_and_rewind_relationship_tick(self):
@@ -169,6 +178,7 @@ class GroupNode(Node):
         Extract gpt_message_ids for each new instance of a person_id in self.speak_list.
         Publish a message to delete these gpt messages.
         Ask the RelationshipManagr to rewind to the last spoken tick.
+        TODO also rewind flag for first time mentioning a question type (each conversation PHASE)
         """
         # Only do anything if there are some unpublished messages in speak_list
         if len(self.speak_list) > 0:
@@ -214,8 +224,9 @@ class GroupNode(Node):
                     self.call_rewind_relationship(self.group_id, rewind_tick, self.group_members)
                     
 
+    def text_request_no_relationship(self, person_id, directed_id, event_id, message_type, question_id, question_phase):
+        self.get_logger().info("In text_request_no_relationship")
 
-    def text_request_no_relationship(self, person_id, directed_id, event_id, message_type):
         msg = PersonTextRequest()
         msg.seq = self.text_seq
         msg.group_id = self.group_id
@@ -229,11 +240,13 @@ class GroupNode(Node):
         msg.person_id = person_id
         msg.message_type = message_type
         msg.directed_id = directed_id 
+        msg.question_id = question_id
+        msg.question_phase = question_phase
         for i in range(5):
             self.person_text_request_publisher.publish(msg)
         self.last_text_recieved = False
 
-    def text_request_with_relationship(self, person_id, directed_id, event_id, message_type):
+    def text_request_with_relationship(self, person_id, directed_id, event_id, message_type, question_id, question_phase):
         """
         Call the RelationshipManager service to tick on the relationship between two people,
         and return the current relationship state.
@@ -248,6 +261,8 @@ class GroupNode(Node):
         :returns to_state: what state we have changed to, if any
         :returns action: What action to speak about, if any
         """
+        self.get_logger().info("In text_request_with_relationship")
+
         # Create a request message
         request = RelationshipAction.Request()
         request.person_a = person_id
@@ -258,10 +273,17 @@ class GroupNode(Node):
         # Send the request to the service and wait for the response
         future = self.tick_get_relationship_client.call_async(request)
         # rclpy.spin_until_future_complete(self, future)
-        future.add_done_callback(lambda future: self.handle_tick_get_relationship_response(future, event_id, person_id, message_type, directed_id))
+        future.add_done_callback(lambda future: self.handle_tick_get_relationship_response(future, 
+                                                                                           event_id, 
+                                                                                           person_id, 
+                                                                                           message_type, 
+                                                                                           directed_id, 
+                                                                                           question_id, 
+                                                                                           question_phase
+                                                                                           ))
 
     # Define the callback function to handle the response:
-    def handle_tick_get_relationship_response(self, future, event_id, person_id, message_type, directed_id):
+    def handle_tick_get_relationship_response(self, future, event_id, person_id, message_type, directed_id, question_id, question_phase):
         try:
             response = future.result()
             if response:
@@ -283,6 +305,8 @@ class GroupNode(Node):
                     msg.person_id = person_id
                     msg.message_type = message_type
                     msg.directed_id = directed_id 
+                    msg.question_id = question_id
+                    msg.question_phase = question_phase
                     for i in range(5):
                         self.person_text_request_publisher.publish(msg)
                     self.last_text_recieved = False
@@ -374,10 +398,16 @@ class GroupNode(Node):
         Every timer_period seconds, check if a next text request or speech request is needed.
         If yes, request it.
         """
-        self.get_logger().info("self.last_speech_completed")
-        self.get_logger().info(str(self.last_speech_completed))
-        self.get_logger().info("self.last_text_recieved")
-        self.get_logger().info(str(self.last_text_recieved))
+
+        if self.prev_last_speech_completed != self.last_speech_completed:
+            self.get_logger().info("self.last_speech_completed")
+            self.get_logger().info(str(self.last_speech_completed))
+            self.prev_last_speech_completed = self.last_speech_completed
+        if self.prev_last_text_recieved != self.last_text_recieved:
+            self.get_logger().info("self.last_text_recieved")
+            self.get_logger().info(str(self.last_text_recieved))
+            self.prev_last_text_recieved = self.last_text_recieved
+
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
         if self.last_speech_completed == True and len(self.speak_list) != 0:
@@ -406,11 +436,13 @@ class GroupNode(Node):
             else:
                 self.get_logger().error("Person who should speak is not in group currently!")
 
-        # If last text was recevied or the group members have just been changed
-        # Send a a request to a person for TEXT
-        # TODO ever a case where we send a person too many text requests?
+
         if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
-            
+            self.get_logger().info("REQUESTING TEXT")
+            if self.new_member_flag == True:
+                # Sleep for a few secs to ensure the person node has registered new group_id
+                time.sleep(3)
+                self.new_member_flag = False
             if len(self.speak_list) != 0:
                 # Get last_speaker, second_last_speaker, and last_message_directed from speech list
                 last_item = self.speak_list[-1]  # Get the last item in the list
@@ -435,12 +467,19 @@ class GroupNode(Node):
                 last_speaker = 0
                 last_message_directed = 0
                 second_last_speaker = 0
-            person_id, message_type, directed_id, event_id = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
+            self.get_logger().info(str(last_speaker))
+            self.get_logger().info(str(second_last_speaker))
+            # TODO check spoken list; if message_type = SWITCH, has this person discussed their Q ever before?
+            person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
+            self.get_logger().info(str(person_id))
+            self.get_logger().info(str(directed_id))
+            self.get_logger().info("Completed group_convo_manager")
+            self.get_logger().info(str(message_type))
             if directed_id != 0:
-                self.text_request_with_relationship(person_id, directed_id, event_id, message_type)
+                self.text_request_with_relationship(person_id, directed_id, event_id, message_type, question_id, question_phase)
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
             else:
-                self.text_request_no_relationship(person_id, directed_id, event_id, message_type)
+                self.text_request_no_relationship(person_id, directed_id, event_id, message_type, question_id, question_phase)
             
 
 

@@ -47,11 +47,7 @@ class PersonNode(Node):
             name = person_data.get('name', "Person not found."),
             gender = person_data.get('gender', "Person not found."),
             age = person_data.get('age', "Person not found."),
-            openness = person_data.get('openness', "Person not found."),
-            conscientiousness = person_data.get('conscientiousness', "Person not found."),
-            neuroticism = person_data.get('neuroticism', "Person not found."),
-            agreeableness = person_data.get('agreeableness', "Person not found."),
-            extraversion = person_data.get('extraversion', "Person not found."),
+            question = person_data.get('question', "Person not found."),
             history = person_data.get('history', "Person not found."),
             relationships = person_data.get('relationships', "Person not found."),
             personality = person_data.get('relationships', "Person not found.")
@@ -70,7 +66,7 @@ class PersonNode(Node):
         self.delete_seq = [-1]*config.NUM_GROUPS
 
         # Initialise prompt manager
-        self.prompt_manager = PromptManager()
+        self.prompt_manager = PromptManager(self.person_id)
         
         # Initialise publishers
         self.person_text_result_publisher = self.create_publisher(
@@ -130,17 +126,28 @@ class PersonNode(Node):
         Callback function for requesting text from the GPT for this person.
         """
         if msg.person_id == self.person_id \
-            and msg.group_id == self.group_id \
             and msg.seq > self.text_seq[msg.group_id-1]:
+            # and msg.group_id == self.group_id \
             self.get_logger().info('In person_text_request_callback')
-            self.get_logger().info(str(msg.message_type))
-            self.get_logger().info(str(msg.directed_id))
-            self.get_logger().info(str(msg.event_id))
-            self.get_logger().info(str(msg.state_changed))
-            self.get_logger().info(str(msg.from_state))
-            self.get_logger().info(str(msg.to_state))
-            self.get_logger().info(str(msg.action))
-            prompt_details = self.prompt_manager.get_prompt_details(msg.message_type, msg.directed_id, msg.event_id, msg.state_changed, msg.from_state, msg.to_state, msg.action, msg.transition_description)
+            # self.get_logger().info(str(msg.message_type))
+            # self.get_logger().info(str(msg.directed_id))
+            # self.get_logger().info(str(msg.event_id))
+            # self.get_logger().info(str(msg.state_changed))
+            # self.get_logger().info(str(msg.from_state))
+            # self.get_logger().info(str(msg.to_state))
+            # self.get_logger().info(str(msg.action))
+            prompt_details = self.prompt_manager.get_prompt_details(
+                msg.message_type, 
+                msg.directed_id, 
+                msg.event_id, 
+                msg.state_changed, 
+                msg.from_state, 
+                msg.to_state, 
+                msg.action, 
+                msg.transition_description,
+                msg.question_id,
+                msg.question_phase
+            )
             self.get_logger().info('////////////////////////////prompt_details')
             self.get_logger().info(str(prompt_details))
             # TODO a double check that the directed_to is actually in the group?
@@ -154,7 +161,14 @@ class PersonNode(Node):
             self.get_logger().info('GPT request complete')
             self.get_logger().info(f'Text from GPT: {text}')
             self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
-            self.person_text_result_pub(msg.seq, text, gpt_message_id, msg.directed_id, msg.relationship_ticked, msg.relationship_tick)
+            self.person_text_result_pub(
+                msg.seq, 
+                text, 
+                gpt_message_id, 
+                msg.directed_id, 
+                msg.relationship_ticked, 
+                msg.relationship_tick
+            )
             self.text_seq[msg.group_id-1] = msg.seq
 
     def person_text_result_pub(self, seq: int, text: str, gpt_message_id: int, directed_id: int, relationship_ticked: bool, relationship_tick: int):
@@ -216,6 +230,7 @@ class PersonNode(Node):
                             self.person.member_joined_group(person)
                 # If they are in a different group from before
                 elif msg.group_id != self.group_id:
+                    self.get_logger().info('This person has joined a new group.')
                     self.group_id = msg.group_id
                     self.group_members = others_in_group
                     # Tell the GPT about the new group
