@@ -70,16 +70,13 @@ class GroupConvoManager():
     def get_question_phase(self):
         """
         Gets the current question phase.
-        If 1, we use action questions.
-        If 2, we use value/belief questions.
-        If 3, we go to a Wittgensteinian discussion.
-        If 4, we go to a realisation of their non-humanness.
-        If 5, we go to slight gibberish.
-        If 6, we go to full gibberish, inidividuals talking.
-        If 7, we go to full gibberish, talking over one another.
-        If 8, we go to binary, talking over one another.
+        If 1, everyone is overly agreeable, helpful with each others' questions.
+        If 2, we go to people starting to incorporate their own opinions on topics.
+        If 3, we go to people getting more polarised and less helpful.  More emotive.
+        If 4, we go to full anger, no listening to each other.  All selfish.
+        If 5, we go to chaos, all talking over one another.
         """
-        question_phase = 1 # We start in the action questions phase by default
+        question_phase = 1 # We start in the overly agreeable phase
 
         time_now = time.time()
         elapsed_seconds = time_now - self.initialise_time
@@ -139,7 +136,12 @@ class GroupConvoManager():
             if event_id != 0:
                 message_type = MessageType.EVENT.value
             else: 
-                message_type = MessageType.DIRECT.value
+                rand = random.randint(0, 100)
+                if rand >= config.SWITCH_PERCENT:
+                    message_type = MessageType.SWITCH.value
+                    self.question_id = next_speaker
+                else:
+                    message_type = MessageType.DIRECT.value
             self.back_and_forth_counter = 0 # back and forth counter doesn't apply if only 2 people in the group
 
         elif len(group_members) > 2:
@@ -153,7 +155,7 @@ class GroupConvoManager():
                     message_type = MessageType.EVENT.value
                 else: 
                     rand = random.randint(0, 100)
-                    if rand >= config.SWITCH_PERCENT and question_phase < 3:
+                    if rand >= config.SWITCH_PERCENT:
                         message_type = MessageType.SWITCH.value
                         self.question_id = next_speaker
                     else:

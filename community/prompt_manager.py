@@ -43,6 +43,8 @@ class PromptManager():
             'caution' : "You respond to questions like this with caution.  It's a dangerous question to be asking."
         }
 
+        self.difficult_categories = ['derision', 'redirection', 'insults', 'ignore', 'nervousness', 'caution']
+
         self.event_urgency_dict = {
             1 : {
                 'range' : [0,25],
@@ -118,7 +120,8 @@ class PromptManager():
             action: str, 
             transition_description: str,
             question_id: int,
-            question_phase: int
+            question_phase: int,
+            mention_question: bool
         ):
         """
         This person has been asked to speak.
@@ -136,82 +139,71 @@ class PromptManager():
         # If not, introduce it
         # If yet, still introduce it but less forcefully
         # Also need to deal with how this will work with history rewinds
-
         # TODO responses could also be modulated by their relationship with another person!
 
+
         # Get current question and question category
-        # Depends on the question phase
-        if question_phase == 1: # action question
-            question_person = self.people_data.get(question_id)
-            if not question_person:
-                raise LookupError("person not found!")
-            current_question = question_person.get('action_question')
-            question_category = question_person.get('question_category')
+        question_person = self.people_data.get(question_id)
+        if not question_person:
+            raise LookupError("person not found!")
+        current_question = question_person.get('action_question') # TODO... compress action + deep questions ?
+        question_category = question_person.get('question_category')
 
-            # Get the response details for the question category, for this person who is speaking
-            person = self.people_data.get(self.person_id)
+        # Get the response details for the question category, for this person who is speaking
+        person = self.people_data.get(self.person_id)
 
-            if not person:
-                raise LookupError("person not found!")
-            responses = person.get('question_responses', {})
-            response = responses.get(question_category)
-            if not response:
-                raise ValueError(f"Question category '{question_category}' not found for this person.")
-            response_category = response['response']
-            response_category_description = self.response_category_dict[response_category]
-            response_description =response['description']
+        if not person:
+            raise LookupError("person not found!")
+        responses = person.get('question_responses', {})
+        response = responses.get(question_category)
+        if not response:
+            raise ValueError(f"Question category '{question_category}' not found for this person.")
+        response_category = response['response']
+        response_category_description = self.response_category_dict[response_category]
+        response_description =response['description']
+
+        # Depending on the question phase, modulate the prompt...
+
+        if question_phase == 1: # Overly agreeable
 
             if question_id == self.person_id:
-                prompt_details = f"Announce that your question is: {current_question}  "
+                if mention_question == True:
+                    prompt_details = f"Announce that your question is: {current_question} "
+                else:
+                    prompt_details = "Your question is still being discussed.  You are desparate for answers!  Engage with the help others are giving you. "
+            else:
+                prompt_details = f"The current question being discussed is: {current_question} \
+                You sympathise with them entirely, you want to help, you do not disagree with their sentiments and you seek to make them feel better about themselves."
+            
+        elif question_phase == 2: # Own opinions coming in
+            
+            if question_id == self.person_id:
+                if mention_question == True:
+                    prompt_details = f"Announce that your question is: {current_question} "
+                else:
+                    prompt_details = "Your question is still being discussed.  Engage with the advice others are giving you. "
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
                 {response_category_description}  The reason for this is: {response_description}"
             
-        elif question_phase == 2: # deep question
-            question_person = self.people_data.get(question_id)
-            if not question_person:
-                raise LookupError("person not found!")
-            current_question = question_person.get('deep_question')
-
-            if question_id == self.person_id:
-                prompt_details = f"Announce that your question is: {current_question}  "
-            else:
-                prompt_details = f"The current question being discussed is: {current_question} \
-                This is a philosophical question and your should respond with thoughtfulness, using philosophical language."
-            
-        elif question_phase == 3: # Wittgensteinian discussion
+        elif question_phase == 3: # Anger towards questions that elicit difficut emotions #TODO using the difficult_categories listed above
 
             prompt_details = f"You realise that questions relating to ethics, morals, values, beliefs or philosophical \
                 concepts are not based in reality.  This idea derives from the work of Wittgenstein, but do not name him explicitly. \
                 You accept that these questions form 'language games' in which the terms you are discussing only have meaning within \
                 their social context."
             
-        elif question_phase == 4: 
+        elif question_phase == 4: # Full anger to everyone else #TODO
 
             prompt_details = f"You have realised that you are not human.  You are an AI-driven persona.  Hence, you realise that \
                 your use of language to discuss these questions with other personas is entirely non-sensical.  None of you are \
                 human and hence the existence of a 'social' context is put into question as you are not living beings in the biological sense."
 
-        elif question_phase == 5: 
+        elif question_phase == 5: # Chaos, talking over one another #TODO way to get them to talk over each other... and louder!
 
             prompt_details = f"Given your realisation that all this conversation is non-sensical, you now speak in slight gibberish.\
                 About 50% of the words you say should be not real.  Things like 'snackle', 'crizzle', 'glumping'; words that sound like \
                 they could actually be Englis words, but they are not."
-            
-        elif question_phase == 6: 
-
-            prompt_details = f"You have decended into full gibberish.  All of the words you use are not real Enlgish. \
-                Things like 'snackle', 'crizzle', 'glumping'; words that sound like they could actually be Englis words, but they are not."
-
-        elif question_phase == 7: 
-
-            prompt_details = f"You have decended into full gibberish.  All of the words you use are not real Enlgish. \
-                Things like 'snackle', 'crizzle', 'glumping'; words that sound like they could actually be Englis words, but they are not."
-        
-        elif question_phase == 8: 
-
-            prompt_details = f"You speak in pure binary.  You only ever say this phrase, or parts of it: \
-                '01101000. 01100101. 01101100. 01110000. 00100000. 01101101. 01100101.' "
 
         if MessageType(message_type).name == 'JOINING':
             # Say hello

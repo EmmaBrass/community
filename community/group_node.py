@@ -17,6 +17,7 @@ from community_interfaces.srv import (
     RelationshipAction
 )
 import community.configuration as config
+from community.message_type import MessageType
 
 import os, yaml, time
 import numpy as np
@@ -224,7 +225,16 @@ class GroupNode(Node):
                     self.call_rewind_relationship(self.group_id, rewind_tick, self.group_members)
                     
 
-    def text_request_no_relationship(self, person_id, directed_id, event_id, message_type, question_id, question_phase):
+    def text_request_no_relationship(
+            self, 
+            person_id, 
+            directed_id, 
+            event_id, 
+            message_type, 
+            question_id, 
+            question_phase, 
+            mention_question
+        ):
         self.get_logger().info("In text_request_no_relationship")
 
         msg = PersonTextRequest()
@@ -242,11 +252,21 @@ class GroupNode(Node):
         msg.directed_id = directed_id 
         msg.question_id = question_id
         msg.question_phase = question_phase
+        msg.mention_question = mention_question
         for i in range(5):
             self.person_text_request_publisher.publish(msg)
         self.last_text_recieved = False
 
-    def text_request_with_relationship(self, person_id, directed_id, event_id, message_type, question_id, question_phase):
+    def text_request_with_relationship(
+            self, 
+            person_id, 
+            directed_id, 
+            event_id, 
+            message_type, 
+            question_id, 
+            question_phase, 
+            mention_question
+        ):
         """
         Call the RelationshipManager service to tick on the relationship between two people,
         and return the current relationship state.
@@ -279,11 +299,22 @@ class GroupNode(Node):
                                                                                            message_type, 
                                                                                            directed_id, 
                                                                                            question_id, 
-                                                                                           question_phase
+                                                                                           question_phase,
+                                                                                           mention_question
                                                                                            ))
 
     # Define the callback function to handle the response:
-    def handle_tick_get_relationship_response(self, future, event_id, person_id, message_type, directed_id, question_id, question_phase):
+    def handle_tick_get_relationship_response(
+            self, 
+            future, 
+            event_id, 
+            person_id, 
+            message_type, 
+            directed_id, 
+            question_id, 
+            question_phase,
+            mention_question
+        ):
         try:
             response = future.result()
             if response:
@@ -307,6 +338,7 @@ class GroupNode(Node):
                     msg.directed_id = directed_id 
                     msg.question_id = question_id
                     msg.question_phase = question_phase
+                    msg.mention_question = mention_question
                     for i in range(5):
                         self.person_text_request_publisher.publish(msg)
                     self.last_text_recieved = False
@@ -367,7 +399,8 @@ class GroupNode(Node):
                 'gpt_message_id' : msg.gpt_message_id,
                 'directed_id' : msg.directed_id,
                 'relationship_ticked' : msg.relationship_ticked,
-                'relationship_tick' : msg.relationship_tick
+                'relationship_tick' : msg.relationship_tick,
+                'mention_question' : msg.mention_question
             })
             self.last_text_recieved = True
             self.text_seq += 1
@@ -388,7 +421,8 @@ class GroupNode(Node):
                     'gpt_message_id' : msg.gpt_message_id,
                     'directed_id' : msg.directed_id,
                     'relationship_ticked' : msg.relationship_ticked,
-                    'relationship_tick' : msg.relationship_tick
+                    'relationship_tick' : msg.relationship_tick,
+                    'mention_question' : msg.mention_question
                 })
             self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
             self.speech_seq += 1
@@ -469,19 +503,62 @@ class GroupNode(Node):
                 second_last_speaker = 0
             self.get_logger().info(str(last_speaker))
             self.get_logger().info(str(second_last_speaker))
-            # TODO check spoken list; if message_type = SWITCH, has this person discussed their Q ever before?
-            person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(self.group_members, last_speaker, second_last_speaker, last_message_directed)
+            # TODO check spoken list; if message_type = SWITCH or ALONE, has this person discussed their Q ever before?
+
+            person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
+                self.group_members, 
+                last_speaker, 
+                second_last_speaker, 
+                last_message_directed
+            )
+            if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
+                mention_question = self.check_last_question_mention(person_id)
+            else:
+                mention_question = False
             self.get_logger().info(str(person_id))
             self.get_logger().info(str(directed_id))
             self.get_logger().info("Completed group_convo_manager")
             self.get_logger().info(str(message_type))
             if directed_id != 0:
-                self.text_request_with_relationship(person_id, directed_id, event_id, message_type, question_id, question_phase)
+                self.text_request_with_relationship(
+                    person_id, 
+                    directed_id, 
+                    event_id, 
+                    message_type, 
+                    question_id, 
+                    question_phase, 
+                    mention_question
+                )
                 # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
             else:
-                self.text_request_no_relationship(person_id, directed_id, event_id, message_type, question_id, question_phase)
+                self.text_request_no_relationship(
+                    person_id, 
+                    directed_id, 
+                    event_id, 
+                    message_type, 
+                    question_id, 
+                    question_phase, 
+                    mention_question
+                )
             
-
+    def check_last_question_mention(self, person_id):
+        """
+        Check if this person explicitly mentioned their question recently.
+        """
+        mention_question = False
+        if len(self.spoken_list) > 0:
+            reversed_spoken_list = self.spoken_list[::-1]
+            len_from_end = 0
+            for num, item in enumerate(reversed_spoken_list):
+                # Find the last item where this person mentioned their question
+                if item['mention_question'] == True and item['person_id'] == person_id:
+                    len_from_end = num
+                    break
+            if len_from_end > config.MIN_QUESTION_MENTION:
+                mention_question = True
+ 
+        return mention_question
+        
 
     def get_voice_id(self, person_id):
         # Now initialize the person object using person attributes from config yaml file

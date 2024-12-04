@@ -67,6 +67,9 @@ class PersonNode(Node):
 
         # Initialise prompt manager
         self.prompt_manager = PromptManager(self.person_id)
+
+        # Note the time the person_node was created, for checking against question mentions
+        self.initialise_time = time.time()
         
         # Initialise publishers
         self.person_text_result_publisher = self.create_publisher(
@@ -121,6 +124,7 @@ class PersonNode(Node):
             self.get_logger().info("Successfully deleted unspoken gpt messages.")
             self.delete_seq[msg.group_id-1] = msg.seq
 
+
     def person_text_request_callback(self, msg):
         """
         Callback function for requesting text from the GPT for this person.
@@ -146,7 +150,8 @@ class PersonNode(Node):
                 msg.action, 
                 msg.transition_description,
                 msg.question_id,
-                msg.question_phase
+                msg.question_phase,
+                msg.mention_question
             )
             self.get_logger().info('////////////////////////////prompt_details')
             self.get_logger().info(str(prompt_details))
@@ -167,11 +172,20 @@ class PersonNode(Node):
                 gpt_message_id, 
                 msg.directed_id, 
                 msg.relationship_ticked, 
-                msg.relationship_tick
+                msg.relationship_tick,
+                msg.mention_question
             )
             self.text_seq[msg.group_id-1] = msg.seq
 
-    def person_text_result_pub(self, seq: int, text: str, gpt_message_id: int, directed_id: int, relationship_ticked: bool, relationship_tick: int):
+    def person_text_result_pub(self, 
+                               seq: int, 
+                               text: str, 
+                               gpt_message_id: int, 
+                               directed_id: int, 
+                               relationship_ticked: bool, 
+                               relationship_tick: int, 
+                               mention_question: bool
+                               ):
         """
         Publish text to the person_text_result topic.
 
@@ -190,6 +204,7 @@ class PersonNode(Node):
         msg.directed_id = directed_id #TODO relationship tick and ticked ????
         msg.relationship_ticked = relationship_ticked
         msg.relationship_tick = relationship_tick
+        msg.mention_question = mention_question
         for i in range(5):
             self.person_text_result_publisher.publish(msg)
 

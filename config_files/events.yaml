@@ -40,7 +40,7 @@ events:
 # A change to a new question type could be cancelled out by a history revision so that need to bear that in mind
 phases:
   1:
-    description: "Action questions."
+    description: "Overly agreeable."
     id: 1
     timestamp:
       hours: 0
@@ -48,7 +48,7 @@ phases:
       seconds: 0
 
   2:
-    description: "Value/belief questions."
+    description: "Start using own opinions."
     id: 2
     timestamp:
       hours: 0
@@ -56,7 +56,7 @@ phases:
       seconds: 0
 
   3:
-    description: "Wittgensteinian discussion."
+    description: "Getting more emotive, anger towards questions that evoke difficult emotions."
     id: 3
     timestamp:
       hours: 0
@@ -64,7 +64,7 @@ phases:
       seconds: 0
 
   4:
-    description: "Realisation of non-humanness."
+    description: "Full anger to everyone else."
     id: 4
     timestamp:
       hours: 0
@@ -72,33 +72,9 @@ phases:
       seconds: 0
 
   5:
-    description: "Slight gibberish."
+    description: "Chaos, talking over one another."
     id: 5
     timestamp:
       hours: 0
       minutes: 20
-      seconds: 0
-  
-  6:
-    description: "Full gibberish, individuals talking."
-    id: 6
-    timestamp:
-      hours: 0
-      minutes: 25
-      seconds: 0
-
-  7:
-    description: "Full gibberish, talking over one another."
-    id: 6
-    timestamp:
-      hours: 0
-      minutes: 30
-      seconds: 0
-
-  8:
-    description: "Binary, talking over one another."
-    id: 6
-    timestamp:
-      hours: 0
-      minutes: 35
       seconds: 0

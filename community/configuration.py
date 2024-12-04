@@ -49,6 +49,9 @@ MAX_SPEAK_LIST_LEN = 5
 # We have a check that (elapsed_seconds-event_timestamp) < MAX_EVENT_DISCUSS_WAIT (in seconds)
 MAX_EVENT_DISCUSS_WAIT = 60
 
+# How many instances of speech must have passed within a group, before an individual can mention their question again
+MIN_QUESTION_MENTION = 7
+
 
 
 

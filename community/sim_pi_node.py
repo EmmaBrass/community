@@ -99,38 +99,28 @@ class SimPiNode(Node): #TODO
                 if self.person_id == msg.person_id: # current person on here must equal the person in the message. 
                     self.get_logger().info(f'Requesting tts for text: {msg.text}')
                     self.text_to_speech(msg.text, msg.voice_id)
-                    self.pi_speech_complete(
-                        True,
-                        msg.seq, 
-                        msg.person_id, 
-                        msg.pi_id,
-                        msg.group_id, 
-                        msg.people_in_group,
-                        msg.text,
-                        msg.gpt_message_id,
-                        msg.directed_id,
-                        msg.relationship_ticked,
-                        msg.relationship_tick
-                    )
-                else: # need to send a 'not completed' back if person has been removed
+                    complete = True
+                else: 
                     self.get_logger().info(f'Person for whom speech was requested is not on this pi anymore.')
-                    self.pi_speech_complete(
-                        False,
-                        msg.seq, 
-                        msg.person_id, 
-                        msg.pi_id,
-                        msg.group_id, 
-                        msg.people_in_group,
-                        msg.text,
-                        msg.gpt_message_id,
-                        msg.directed_id,
-                        msg.relationship_ticked,
-                        msg.relationship_tick
-                    )
+                    complete = False # need to send a 'not completed' back if person has been removed
+                self.pi_speech_complete(
+                    complete,
+                    msg.seq, 
+                    msg.person_id, 
+                    msg.pi_id,
+                    msg.group_id, 
+                    msg.people_in_group,
+                    msg.text,
+                    msg.gpt_message_id,
+                    msg.directed_id,
+                    msg.relationship_ticked,
+                    msg.relationship_tick,
+                    msg.mention_question
+                )
                 self.speech_seq[msg.group_id] = msg.seq
                 
 
-    def pi_speech_complete(self, complete, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick):
+    def pi_speech_complete(self, complete, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick, mention_question):
         """
         Publish to say that the text has been spoken.
         """
@@ -146,6 +136,7 @@ class SimPiNode(Node): #TODO
         msg.complete = complete
         msg.relationship_ticked = relationship_ticked
         msg.relationship_tick = relationship_tick
+        msg.mention_question = mention_question
         for i in range(5):
             self.pi_speech_complete_publisher.publish(msg)
 
