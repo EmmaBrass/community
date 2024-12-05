@@ -12,7 +12,7 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 
-import wave, os
+import wave, os, random
 from piper.voice import PiperVoice
 
 from community_interfaces.msg import (
@@ -46,6 +46,17 @@ class SimPiNode(Node): #TODO
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
 
+        # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
+        self.hello_list = ['Hi there!', 
+                           'Hello', 
+                           'Hey guys', 
+                           'Hey, it\'s nice to be here', 
+                           'Hello there. It\'s great to be here!', 
+                           'Hi, looking forward to talking to you all',
+                           'Howdy folks', 
+                           'I\'m so happy to be here'
+                           ]
+
         # Initialise subscribers
         self.sim_pi_person_assign_subscription = self.create_subscription(
             SimPiPersonAssign,
@@ -74,6 +85,10 @@ class SimPiNode(Node): #TODO
         """
         if msg.pi_id == self.pi_id and msg.person_id != self.person_id:
             self.person_id = msg.person_id
+            # Say hello
+            if msg.person_id != 0:
+                self.text_to_speech(random.choice(self.hello_list), msg.voice_id)
+
 
     def group_info_callback(self, msg):
         """

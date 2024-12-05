@@ -29,8 +29,8 @@ class SimPiController(Node):
         self.in_menu = False  # Track whether the curses menu is active
 
         # Load people from people.yaml
-        self.all_people = self.load_people_ids()
-        self.available_people = self.all_people
+        self.people_ids, self.people_data = self.load_people()
+        self.available_people = self.people_ids
 
         # Initialise publisher
         self.sim_pi_person_assign_publisher = self.create_publisher(SimPiPersonAssign, 'sim_pi_person_assign', 10)
@@ -42,16 +42,17 @@ class SimPiController(Node):
         # Display initial instructions
         self.display_instructions()
 
-    def load_people_ids(self):
+    def load_people(self):
         try:
             # Load people.yaml
             package_share_dir = get_package_share_directory('community')
             people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
             with open(people_path, 'r') as file:
                 data = yaml.safe_load(file)
+                people_data = data['people']
                 people_ids = list(data['people'].keys())
                 self.get_logger().info(f"Loaded people: {people_ids}")
-                return [int(pid) for pid in people_ids]
+                return [int(pid) for pid in people_ids], people_data
         except Exception as e:
             self.get_logger().error(f"Failed to load people.yaml: {e}")
             return []
@@ -151,8 +152,19 @@ class SimPiController(Node):
         msg = SimPiPersonAssign()
         msg.pi_id = self.selected_pi
         msg.person_id = person_id
+        msg.voice_id = self.get_voice_id(person_id)
         for i in range(5):
             self.sim_pi_person_assign_publisher.publish(msg)
+
+    def get_voice_id(self, person_id):
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = self.people_data.get(person_id, {})
+        voice_id = person_data.get('voice_id', None)
+        self.get_logger().info(f"Voice ID is: {voice_id}")
+        if voice_id == None:
+            self.get_logger().info("Error! Voice_id not found for this person_id")
+        return str(voice_id)
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -170,10 +170,12 @@ class PromptManager():
                 if mention_question == True:
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
-                    prompt_details = "Your question is still being discussed.  You are desparate for answers!  Engage with the help others are giving you. "
+                    prompt_details = "You are desparate for answers, but alude to your question rather than stating it explicitly. "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details += "Your question is still being discussed. Engage with the help others are giving you. "
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
-                You sympathise with them entirely, you want to help, you do not disagree with their sentiments and you seek to make them feel better about themselves."
+                You sympathise with them entirely, you want to help, you do not disagree with their sentiments and you seek to make them feel better about themselves. "
             
         elif question_phase == 2: # Own opinions coming in
             
@@ -181,7 +183,9 @@ class PromptManager():
                 if mention_question == True:
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
-                    prompt_details = "Your question is still being discussed.  Engage with the advice others are giving you. "
+                    prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details += "Your question is still being discussed; engage with the advice others are giving you. "
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
                 {response_category_description}  The reason for this is: {response_description}"
@@ -214,7 +218,7 @@ class PromptManager():
                 conversation topic and then say goodbye in a few words."
         elif MessageType(message_type).name == 'SWITCH':
             # Forcefully announce your own question
-            own_question = person.get('question')
+            own_question = person.get('action_question')
             prompt_details += f"Forcefully ask your OWN question: {own_question}" 
         elif MessageType(message_type).name == 'OPEN':
             # Just say whatever you like about the current question for 2 sentences

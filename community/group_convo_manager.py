@@ -109,9 +109,9 @@ class GroupConvoManager():
         event_id = 0
 
         question_phase = self.get_question_phase() #TODO this will AFFECT the message type 
-        # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 3 onwards.
+        # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 4 onwards.
 
-        if self.first_question_flag == True and question_phase < 3:
+        if self.first_question_flag == True:
             message_type = MessageType.SWITCH.value
             next_speaker = random.choice(group_members)
             self.question_id = next_speaker
@@ -137,7 +137,7 @@ class GroupConvoManager():
                 message_type = MessageType.EVENT.value
             else: 
                 rand = random.randint(0, 100)
-                if rand >= config.SWITCH_PERCENT:
+                if rand <= config.SWITCH_PERCENT:
                     message_type = MessageType.SWITCH.value
                     self.question_id = next_speaker
                 else:
@@ -155,7 +155,7 @@ class GroupConvoManager():
                     message_type = MessageType.EVENT.value
                 else: 
                     rand = random.randint(0, 100)
-                    if rand >= config.SWITCH_PERCENT:
+                    if rand <= config.SWITCH_PERCENT:
                         message_type = MessageType.SWITCH.value
                         self.question_id = next_speaker
                     else:
@@ -197,7 +197,7 @@ class GroupConvoManager():
                         # Direct at someone
                         filtered_members = [item for item in group_members if item != last_speaker and item != next_speaker]
                         directed_id = random.choice(filtered_members)
-                    elif rand >= config.DIRECT_PERCENT and rand < (config.DIRECT_PERCENT + config.SWITCH_PERCENT) and question_phase < 3:
+                    elif rand >= config.DIRECT_PERCENT and rand < (config.DIRECT_PERCENT + config.SWITCH_PERCENT):
                         message_type = MessageType.SWITCH.value
                         self.question_id = next_speaker
                     else: 

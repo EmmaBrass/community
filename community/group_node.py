@@ -48,8 +48,14 @@ class GroupNode(Node):
         self.left_member_flag = False
         # Variable for if last requested speech has been spoken by the pi
         self.last_speech_completed = True
+        # Variable for indicating when in the process of compiling and sending new speech request
+        self.creating_speech_request = False
         # Variable for if last person gpt text request has been recieved
         self.last_text_recieved = True
+        # Variable for indicating when in the process of compiling and sending new text request
+        self.creating_text_request = False
+        # If very beginning of system, mention question
+        self.first_question = True
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
@@ -58,6 +64,7 @@ class GroupNode(Node):
         self.delete_seq = 0
         # Seq for receiving group info
         self.group_info_seq = -1
+
 
         self.prev_last_speech_completed = True
         self.prev_last_text_recieved = True
@@ -256,6 +263,7 @@ class GroupNode(Node):
         for i in range(5):
             self.person_text_request_publisher.publish(msg)
         self.last_text_recieved = False
+        self.creating_text_request = False
 
     def text_request_with_relationship(
             self, 
@@ -342,6 +350,7 @@ class GroupNode(Node):
                     for i in range(5):
                         self.person_text_request_publisher.publish(msg)
                     self.last_text_recieved = False
+                    self.creating_text_request = False
                 else:
                     self.get_logger().error("Failed to call tick_get_relationship service")
                     
@@ -444,7 +453,8 @@ class GroupNode(Node):
 
         # Check if new speech required (if last person's speech has been spoken).
         # Send a request to the Pi to SPEAK.
-        if self.last_speech_completed == True and len(self.speak_list) != 0:
+        if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
+            self.creating_speech_request = True
             self.get_logger().info('PUBLISHING SPEECH')
             # Use the FIRST item in speak_list
             text_dict = self.speak_list.pop(0)
@@ -467,11 +477,13 @@ class GroupNode(Node):
                 for i in range(5):
                     self.pi_speech_request_publisher.publish(msg)
                 self.last_speech_completed = False
+                self.creating_speech_request = False
             else:
                 self.get_logger().error("Person who should speak is not in group currently!")
 
 
-        if self.last_text_recieved == True and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
+        if self.last_text_recieved == True and self.creating_text_request == False and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
+            self.creating_text_request = True
             self.get_logger().info("REQUESTING TEXT")
             if self.new_member_flag == True:
                 # Sleep for a few secs to ensure the person node has registered new group_id
@@ -556,6 +568,9 @@ class GroupNode(Node):
                     break
             if len_from_end > config.MIN_QUESTION_MENTION:
                 mention_question = True
+        if self.first_question == True:
+            mention_question = True
+            self.first_question = False
  
         return mention_question
         
