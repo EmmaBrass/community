@@ -9,6 +9,7 @@ from std_msgs.msg import Int16MultiArray
 
 from community_interfaces.msg import (
     PiSpeechRequest,
+    PiSpeechComplete,
     PersonTextRequest,
     PersonTextResult,
     GroupInfo,
@@ -17,6 +18,7 @@ from community_interfaces.msg import (
 import community.configuration as config
 from community.person_llm import PersonLLM
 from community.prompt_manager import PromptManager
+from community.question_phase import GetQuestionPhase
 
 import cv2, math, time, logging, pickle
 import numpy as np
@@ -42,6 +44,12 @@ class PersonNode(Node):
 
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.people_data.get(self.person_id, {})
+        # Get voice id
+        self.voice_id = str(person_data.get('voice_id', None))
+        self.get_logger().info(f"Voice ID is: {self.voice_id}")
+        if self.voice_id == None:
+            self.get_logger().info("Error! Voice_id not found for this person_id")
+
         self.person = PersonLLM(
             person_id = self.person_id,
             name = person_data.get('name', "Person not found."),
@@ -65,11 +73,26 @@ class PersonNode(Node):
         # Seq for deletie message id
         self.delete_seq = [-1]*config.NUM_GROUPS
 
+        # For tracking speech from Pi for chaos phase
+        self.last_chaos_completed = True
+        # For chaos phase, checking were we are in request
+        self.creating_speech_request == False
+        # List of things to say in chaos phase
+        self.speak_list = []
+        # Seq for chaos phase
+        self.chaos_seq = 1
+
         # Initialise prompt manager
         self.prompt_manager = PromptManager(self.person_id)
 
-        # Note the time the person_node was created, for checking against question mentions
-        self.initialise_time = time.time()
+        # Initialise question phase checker
+        self.question_phase = GetQuestionPhase()
+
+        # Initialise publishers
+        self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
+        # Timer callback
+        timer_period = 0.5  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
         
         # Initialise publishers
         self.person_text_result_publisher = self.create_publisher(
@@ -94,6 +117,12 @@ class PersonNode(Node):
             GroupInfo,
             'group_info', 
             self.group_info_callback, 
+            10
+        )
+        self.pi_speech_complete_subscription = self.create_subscription(
+            PiSpeechComplete,
+            'pi_speech_complete', 
+            self.pi_speech_complete_callback, 
             10
         )
         self.delete_gpt_message_id_subscription = self.create_subscription(
@@ -133,13 +162,6 @@ class PersonNode(Node):
             and msg.seq > self.text_seq[msg.group_id-1]:
             # and msg.group_id == self.group_id \
             self.get_logger().info('In person_text_request_callback')
-            # self.get_logger().info(str(msg.message_type))
-            # self.get_logger().info(str(msg.directed_id))
-            # self.get_logger().info(str(msg.event_id))
-            # self.get_logger().info(str(msg.state_changed))
-            # self.get_logger().info(str(msg.from_state))
-            # self.get_logger().info(str(msg.to_state))
-            # self.get_logger().info(str(msg.action))
             prompt_details = self.prompt_manager.get_prompt_details(
                 msg.message_type, 
                 msg.directed_id, 
@@ -156,7 +178,6 @@ class PersonNode(Node):
             self.get_logger().info('////////////////////////////prompt_details')
             self.get_logger().info(str(prompt_details))
             # TODO a double check that the directed_to is actually in the group?
-            # TODO Decide on the mood for the GPT.
             text, gpt_message_id = self.person.person_speaks(
                 self.person_id,
                 self.group_id,
@@ -270,6 +291,93 @@ class PersonNode(Node):
                 # msg.directed_id # Who the message was directed at
             )
             self.speech_seq[msg.group_id-1] = msg.seq
+
+    def pi_speech_complete_callback(self, msg):
+        """
+        Callback for info that the pi has finished speaking a requested text.
+        Only used once in chaos question phase.
+        """
+        if msg.seq == self.chaos_seq and msg.group_id == self.group_id and self.question_phase.get_question_phase() >= config.CHAOS_QUESTION_PHASE:
+            self.get_logger().info('In pi_speech_complete_callback')
+            self.last_chaos_completed = True
+            self.chaos_seq += 1
+
+    def timer_callback(self):
+        """
+        For when past the chaos question phase, 
+        pi speech requests will be managed directly from the person nodes.
+        """
+        # Text requests will be sent directly from here rather than the group nodes,
+        #  if we are past the chaos question phase.
+        question_phase = self.question_phase.get_question_phase()
+        if question_phase >= config.CHAOS_QUESTION_PHASE:
+
+            if self.last_chaos_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
+                self.creating_speech_request = True
+                self.get_logger().info('PUBLISHING SPEECH')
+                # Use the FIRST item in speak_list
+                text_dict = self.speak_list.pop(0)
+                # Double check the person is still in the group
+                if text_dict['person_id'] in self.group_members:
+                    msg = PiSpeechRequest()
+                    msg.seq = self.chaos_seq
+                    msg.voice_id = self.voice_id
+                    self.get_logger().info(f'Voice_id here: {self.voice_id}')
+                    msg.person_id = text_dict['person_id']
+                    msg.pi_id = text_dict['pi_id']
+                    msg.group_id = text_dict['group_id']
+                    msg.people_in_group = text_dict['people_in_group']
+                    msg.text = text_dict['text']
+                    msg.gpt_message_id = text_dict['gpt_message_id']
+                    msg.directed_id = text_dict['directed_id']
+                    msg.relationship_ticked = text_dict['relationship_ticked']
+                    msg.relationship_tick = text_dict['relationship_tick']
+                    msg.chaos_phase = True
+                    for i in range(5):
+                        self.pi_speech_request_publisher.publish(msg)
+                    self.last_chaos_completed = False
+                    self.creating_speech_request = False
+                else:
+                    self.get_logger().error("Person who should speak is not in group currently!")
+
+            if len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
+                prompt_details = self.prompt_manager.get_prompt_details(
+                    message_type=2,
+                    directed_id=0, 
+                    event_id=0, 
+                    state_changed=False, 
+                    from_state="None", 
+                    to_state="None", 
+                    action="None", 
+                    transition_description="None",
+                    question_id=0,
+                    question_phase=question_phase,
+                    mention_question=False
+                )
+                self.get_logger().info('////////////////////////////prompt_details')
+                self.get_logger().info(str(prompt_details))
+                # TODO a double check that the directed_to is actually in the group?
+                text, gpt_message_id = self.person.person_speaks(
+                    self.person_id,
+                    self.group_id,
+                    self.group_members, # Members of the group EXCLUDING the person who will talk.
+                    prompt_details
+                )
+                self.get_logger().info('GPT request complete')
+                self.get_logger().info(f'Text from GPT: {text}')
+                self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
+                self.speak_list.append({
+                    'person_id' : self.person_id,
+                    'pi_id' : self.pi_id,
+                    'group_id' : self.group_id,
+                    'people_in_group': self.group_members,
+                    'text' : text,
+                    'gpt_message_id' : gpt_message_id,
+                    'directed_id' : msg.directed_id,
+                    'relationship_ticked' : msg.relationship_ticked,
+                    'relationship_tick' : msg.relationship_tick,
+                    'mention_question' : msg.mention_question
+                })
 
 
 def main(args=None):

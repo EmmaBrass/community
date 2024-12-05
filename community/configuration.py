@@ -30,6 +30,12 @@ GROUP_PI_ASSIGNMENTS = {
 #     {'group_id': 4, 'pi_ids': [7,8,9,10,11]}
 # ]
 
+# Whether or not to include relationships
+RELATIONSHIPS = False
+
+# Whether or not the include events (outside of the basic question phases)
+EVENTS = False
+
 # Max number of back and forth exchanges between just two people before someone else is asked to speak.
 BACK_AND_FORTH_MAX = 8
 
@@ -40,7 +46,7 @@ INTERRUPT_PERCENT = 20
 DIRECT_PERCENT = 40
 
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just and open comment
-SWITCH_PERCENT = 30
+SWITCH_PERCENT = 25
 
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
 MAX_SPEAK_LIST_LEN = 5
@@ -51,6 +57,9 @@ MAX_EVENT_DISCUSS_WAIT = 60
 
 # How many instances of speech must have passed within a group, before an individual can mention their question again
 MIN_QUESTION_MENTION = 7
+
+# Which question phase everyone starts to talk over one another
+CHAOS_QUESTION_PHASE = 5
 
 
 

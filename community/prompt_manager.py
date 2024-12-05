@@ -172,7 +172,7 @@ class PromptManager():
                 else:
                     prompt_details = "You are desparate for answers, but alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Your question is still being discussed. Engage with the help others are giving you. "
+                        prompt_details += "Your question is being discussed. Engage with the incredible help that others are giving you, and express great appreciation for it. "
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 You sympathise with them entirely, you want to help, you do not disagree with their sentiments and you seek to make them feel better about themselves. "
@@ -185,29 +185,46 @@ class PromptManager():
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Your question is still being discussed; engage with the advice others are giving you. "
+                        prompt_details += "Your question is still being discussed; engage critically with the advice others are giving you. "
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
-                {response_category_description}  The reason for this is: {response_description}"
+                {response_category_description}  The reason for this is: {response_description} "
             
         elif question_phase == 3: # Anger towards questions that elicit difficut emotions #TODO using the difficult_categories listed above
 
-            prompt_details = f"You realise that questions relating to ethics, morals, values, beliefs or philosophical \
-                concepts are not based in reality.  This idea derives from the work of Wittgenstein, but do not name him explicitly. \
-                You accept that these questions form 'language games' in which the terms you are discussing only have meaning within \
-                their social context."
+            if question_id == self.person_id:
+                if mention_question == True:
+                    prompt_details = f"Announce that your question is: {current_question} "
+                else:
+                    prompt_details = "Only alude to your question rather than stating it explicitly. "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details += "Others are being quite unhelpful; they are not really adequately answering your question. "
+            else:
+                prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
+                {response_category_description}  The reason for this is: {response_description}. "
+                if response_category in self.difficult_categories:
+                    prompt_details += "React very negatively!  You hate difficult emotions and hate that this person is making you feel them! "
             
-        elif question_phase == 4: # Full anger to everyone else #TODO
+        elif question_phase == 4:
 
-            prompt_details = f"You have realised that you are not human.  You are an AI-driven persona.  Hence, you realise that \
-                your use of language to discuss these questions with other personas is entirely non-sensical.  None of you are \
-                human and hence the existence of a 'social' context is put into question as you are not living beings in the biological sense."
+            if question_id == self.person_id:
+                if mention_question == True:
+                    prompt_details = f"Announce that your question is: {current_question} "
+                else:
+                    prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details += "Others are not being helpful at all; they are not answering your desparate question! They are useless. "
+            else:
+                prompt_details = f"The current question being discussed is: {current_question}  You don't care and don't want to talk about it! \
+                     It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
 
-        elif question_phase == 5: # Chaos, talking over one another #TODO way to get them to talk over each other... and louder!
+        elif question_phase == 5: # Chaos, talking over one another #TODO + way to get them to talk over each other... and louder!
 
-            prompt_details = f"Given your realisation that all this conversation is non-sensical, you now speak in slight gibberish.\
-                About 50% of the words you say should be not real.  Things like 'snackle', 'crizzle', 'glumping'; words that sound like \
-                they could actually be Englis words, but they are not."
+            own_question = person.get('action_question')
+            prompt_details = f"Shout about your own question: {own_question} (alude to your question rather than stating it explicitly). \
+                You don't care about anyone else or any other question. \
+                You are desperate to find the answer to your own question, but no one will listen and no one seem to care. \
+                You are distraught. "
 
         if MessageType(message_type).name == 'JOINING':
             # Say hello
@@ -229,7 +246,7 @@ class PromptManager():
             prompt_details += f"You are the only one in the group. {alone_response}"
         elif MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
-            prompt_details += f"You are interrupting a back-and-forth between two people. Give your own thoughts on the topic at hand."
+            prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
         elif MessageType(message_type).name == 'DIRECT':
             # Get name of person the message is directed at using directed_id
             directed_name = self.get_name_by_id(directed_id)

@@ -23,6 +23,7 @@ import os, yaml, time
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
+from community.question_phase import GetQuestionPhase
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -84,6 +85,9 @@ class GroupNode(Node):
 
         # Initialise GroupConvoManager object
         self.group_convo_manager = GroupConvoManager()
+
+        # Initialise question phase checker
+        self.question_phase = GetQuestionPhase()
 
         # Get the path to the `people.yaml` file
         package_share_dir = get_package_share_directory('community')
@@ -431,7 +435,7 @@ class GroupNode(Node):
                     'directed_id' : msg.directed_id,
                     'relationship_ticked' : msg.relationship_ticked,
                     'relationship_tick' : msg.relationship_tick,
-                    'mention_question' : msg.mention_question
+                    'mention_question' : msg.mention_question,
                 })
             self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
             self.speech_seq += 1
@@ -451,107 +455,117 @@ class GroupNode(Node):
             self.get_logger().info(str(self.last_text_recieved))
             self.prev_last_text_recieved = self.last_text_recieved
 
-        # Check if new speech required (if last person's speech has been spoken).
-        # Send a request to the Pi to SPEAK.
-        if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
-            self.creating_speech_request = True
-            self.get_logger().info('PUBLISHING SPEECH')
-            # Use the FIRST item in speak_list
-            text_dict = self.speak_list.pop(0)
-            # Double check the person is still in the group
-            if text_dict['person_id'] in self.group_members:
-                msg = PiSpeechRequest()
-                msg.seq = self.speech_seq
-                voice_id = self.get_voice_id(text_dict['person_id'])
-                msg.voice_id = voice_id
-                self.get_logger().info(f'Voice_id here: {voice_id}')
-                msg.person_id = text_dict['person_id']
-                msg.pi_id = text_dict['pi_id']
-                msg.group_id = text_dict['group_id']
-                msg.people_in_group = text_dict['people_in_group']
-                msg.text = text_dict['text']
-                msg.gpt_message_id = text_dict['gpt_message_id']
-                msg.directed_id = text_dict['directed_id']
-                msg.relationship_ticked = text_dict['relationship_ticked']
-                msg.relationship_tick = text_dict['relationship_tick']
-                for i in range(5):
-                    self.pi_speech_request_publisher.publish(msg)
-                self.last_speech_completed = False
-                self.creating_speech_request = False
-            else:
-                self.get_logger().error("Person who should speak is not in group currently!")
+        # Text requests will be sent directly from the person nodes 
+        # rather than here, if we are past the chaos question phase.
+        question_phase = self.question_phase.get_question_phase()
+        if question_phase < config.CHAOS_QUESTION_PHASE:
 
-
-        if self.last_text_recieved == True and self.creating_text_request == False and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
-            self.creating_text_request = True
-            self.get_logger().info("REQUESTING TEXT")
-            if self.new_member_flag == True:
-                # Sleep for a few secs to ensure the person node has registered new group_id
-                time.sleep(3)
-                self.new_member_flag = False
-            if len(self.speak_list) != 0:
-                # Get last_speaker, second_last_speaker, and last_message_directed from speech list
-                last_item = self.speak_list[-1]  # Get the last item in the list
-                last_speaker = last_item['person_id']
-                last_message_directed = last_item['directed_id']
-                if len(self.speak_list) > 1:
-                    second_last_item = self.speak_list[-2]
-                    second_last_speaker = second_last_item['person_id']
+            # Check if new speech required (if last person's speech has been spoken).
+            # Send a request to the Pi to SPEAK.
+            if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
+                self.creating_speech_request = True
+                self.get_logger().info('PUBLISHING SPEECH')
+                # Use the FIRST item in speak_list
+                text_dict = self.speak_list.pop(0)
+                # Double check the person is still in the group
+                if text_dict['person_id'] in self.group_members:
+                    msg = PiSpeechRequest()
+                    msg.seq = self.speech_seq
+                    voice_id = self.get_voice_id(text_dict['person_id'])
+                    msg.voice_id = voice_id
+                    self.get_logger().info(f'Voice_id here: {voice_id}')
+                    msg.person_id = text_dict['person_id']
+                    msg.pi_id = text_dict['pi_id']
+                    msg.group_id = text_dict['group_id']
+                    msg.people_in_group = text_dict['people_in_group']
+                    msg.text = text_dict['text']
+                    msg.gpt_message_id = text_dict['gpt_message_id']
+                    msg.directed_id = text_dict['directed_id']
+                    msg.relationship_ticked = text_dict['relationship_ticked']
+                    msg.relationship_tick = text_dict['relationship_tick']
+                    msg.chaos_phase = False
+                    for i in range(5):
+                        self.pi_speech_request_publisher.publish(msg)
+                    self.last_speech_completed = False
+                    self.creating_speech_request = False
                 else:
-                    second_last_speaker = 0
-            elif len(self.spoken_list) != 0:
-                # Group has reset in some way - get from spoken list.
-                last_item = self.spoken_list[-1]  # Get the last item in the list
-                last_speaker = last_item['person_id']
-                last_message_directed = last_item['directed_id']
-                if len(self.spoken_list) > 1:
-                    second_last_item = self.spoken_list[-2]
-                    second_last_speaker = second_last_item['person_id']
-                else:
-                    second_last_speaker = 0
-            else:
-                last_speaker = 0
-                last_message_directed = 0
-                second_last_speaker = 0
-            self.get_logger().info(str(last_speaker))
-            self.get_logger().info(str(second_last_speaker))
-            # TODO check spoken list; if message_type = SWITCH or ALONE, has this person discussed their Q ever before?
+                    self.get_logger().error("Person who should speak is not in group currently!")
 
-            person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
-                self.group_members, 
-                last_speaker, 
-                second_last_speaker, 
-                last_message_directed
-            )
-            if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
-                mention_question = self.check_last_question_mention(person_id)
-            else:
-                mention_question = False
-            self.get_logger().info(str(person_id))
-            self.get_logger().info(str(directed_id))
-            self.get_logger().info("Completed group_convo_manager")
-            self.get_logger().info(str(message_type))
-            if directed_id != 0:
-                self.text_request_with_relationship(
-                    person_id, 
-                    directed_id, 
-                    event_id, 
-                    message_type, 
-                    question_id, 
-                    question_phase, 
-                    mention_question
+
+            if self.last_text_recieved == True and self.creating_text_request == False and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
+                self.creating_text_request = True
+                self.get_logger().info("REQUESTING TEXT")
+                if self.new_member_flag == True:
+                    # Sleep for a few secs to ensure the person node has registered new group_id
+                    time.sleep(3)
+                    self.new_member_flag = False
+                if len(self.speak_list) != 0:
+                    # Get last_speaker, second_last_speaker, and last_message_directed from speech list
+                    last_item = self.speak_list[-1]  # Get the last item in the list
+                    last_speaker = last_item['person_id']
+                    last_message_directed = last_item['directed_id']
+                    if len(self.speak_list) > 1:
+                        second_last_item = self.speak_list[-2]
+                        second_last_speaker = second_last_item['person_id']
+                    else:
+                        second_last_speaker = 0
+                elif len(self.spoken_list) != 0:
+                    # Group has reset in some way - get from spoken list.
+                    last_item = self.spoken_list[-1]  # Get the last item in the list
+                    last_speaker = last_item['person_id']
+                    last_message_directed = last_item['directed_id']
+                    if len(self.spoken_list) > 1:
+                        second_last_item = self.spoken_list[-2]
+                        second_last_speaker = second_last_item['person_id']
+                    else:
+                        second_last_speaker = 0
+                else:
+                    last_speaker = 0
+                    last_message_directed = 0
+                    second_last_speaker = 0
+                self.get_logger().info(str(last_speaker))
+                self.get_logger().info(str(second_last_speaker))
+                # TODO check spoken list; if message_type = SWITCH or ALONE, has this person discussed their Q ever before?
+
+                person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
+                    self.group_members, 
+                    last_speaker, 
+                    second_last_speaker, 
+                    last_message_directed
                 )
-                # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
-            else:
-                self.text_request_no_relationship(
-                    person_id, 
-                    directed_id, 
-                    event_id, 
-                    message_type, 
-                    question_id, 
-                    question_phase, 
-                    mention_question
-                )
+                if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
+                    mention_question = self.check_last_question_mention(person_id)
+                else:
+                    mention_question = False
+                self.get_logger().info("person id")
+                self.get_logger().info(str(person_id))
+                self.get_logger().info("directed id")
+                self.get_logger().info(str(directed_id))
+                self.get_logger().info("Completed group_convo_manager")
+                self.get_logger().info("message type")
+                self.get_logger().info(str(message_type))
+                if directed_id != 0 and config.RELATIONSHIPS == True: 
+                    # Relationships must be turned on in config file to go here
+                    self.text_request_with_relationship(
+                        person_id, 
+                        directed_id, 
+                        event_id, 
+                        message_type, 
+                        question_id, 
+                        question_phase, 
+                        mention_question
+                    )
+                    # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
+                else:
+                    self.text_request_no_relationship(
+                        person_id, 
+                        directed_id, 
+                        event_id, 
+                        message_type, 
+                        question_id, 
+                        question_phase, 
+                        mention_question
+                    )
             
     def check_last_question_mention(self, person_id):
         """

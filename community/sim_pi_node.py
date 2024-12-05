@@ -12,8 +12,10 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 
-import wave, os, random
+import wave, os, random, subprocess
 from piper.voice import PiperVoice
+
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from community_interfaces.msg import (
     PiPersonUpdates,
@@ -24,7 +26,7 @@ from community_interfaces.msg import (
 )
 
 
-class SimPiNode(Node): #TODO
+class SimPiNode(Node):
 
     def __init__(self):
         super().__init__('pi_node')
@@ -36,8 +38,20 @@ class SimPiNode(Node): #TODO
         # The ID for the RFID object places on the pi (this changes).
         self.person_id = 0 # 0 means no card there
 
+        self.playback_process = None
+        self.stop_playback = False
+
+        # Use mutually exclusive callback group to avoid overlapping callbacks
+        self.callback_group = MutuallyExclusiveCallbackGroup()
+
         # Seq list for receiving speech requests - one item for each group
         self.speech_seq = None
+
+        # Seq for chaos phase
+        self.chaos_seq = 0
+
+        # Flag indicating if audio playback is finished
+        self.audio_finished = True  
 
         # Initialise publishers
         self.pi_person_updates_publisher = self.create_publisher(PiPersonUpdates, 'pi_person_updates', 10)
@@ -45,6 +59,9 @@ class SimPiNode(Node): #TODO
 
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
+
+        # Add a timer to monitor playback
+        self.playback_timer = self.create_timer(0.1, self.monitor_playback, callback_group=self.callback_group)
 
         # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
         self.hello_list = ['Hi there!', 
@@ -79,21 +96,76 @@ class SimPiNode(Node): #TODO
         # Prevent unused variable warnings
         self.pi_speech_request_subscription 
 
+
+    def text_to_speech(self, to_speak, voice_id):
+        """
+        Speak a text file
+        """
+        try:
+            voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
+            model = voicedir + voice_id
+            voice = PiperVoice.load(model)
+            
+            # Define output .wav file
+            wav_file = 'output.wav'
+            
+            # Open wave file in binary write mode
+            with wave.open(wav_file, 'wb') as wav:
+                # Set wave parameters (sample width, channels, frame rate)
+                wav.setnchannels(1)  # Mono audio
+                wav.setsampwidth(2)  # Typically 16-bit audio
+                wav.setframerate(22050)  # Set frame rate to 22.05 kHz
+                
+                # Synthesize text and write audio frames
+                voice.synthesize(to_speak, wav)
+
+            # Play audio
+            self.get_logger().info("Playing .wav file")
+            self.playback_process = subprocess.Popen(['aplay', wav_file])
+            self.stop_playback = False
+
+        except Exception as e:
+            self.get_logger().error(f"Error in text_to_speech: {e}")
+            self.audio_finished = True  # Set to finished in case of error
+
+    def stop_audio_playback(self):
+        """
+        Stop audio playback if a process is running.
+        """
+        if self.playback_process and self.playback_process.poll() is None:  # Process is still running
+            self.playback_process.terminate()
+            self.get_logger().info("Stopped playback.")
+            self.playback_process = None
+        self.stop_playback = True
+        self.audio_finished = True
+
+    def monitor_playback(self):
+        """
+        Monitor the playback process and update the finished flag when playback ends.
+        """
+        if self.playback_process and self.playback_process.poll() is not None:  # Playback finished naturally
+            self.get_logger().info("Playback completed.")
+            self.audio_finished = True
+            self.playback_process = None
+        elif self.stop_playback:
+            self.stop_audio_playback()  # Handle forced stop
+
     def sim_pi_person_assign_callback(self, msg):
         """
         Update what person is on this simulated pi node.
         """
         if msg.pi_id == self.pi_id and msg.person_id != self.person_id:
+            # Stop any playback if the person ID changes
+            self.stop_audio_playback()
+            # Update person_id
             self.person_id = msg.person_id
-            # Say hello
-            if msg.person_id != 0:
+            if self.person_id != 0:  # Say hello if a new person is assigned
                 self.text_to_speech(random.choice(self.hello_list), msg.voice_id)
-
 
     def group_info_callback(self, msg):
         """
-        Used just after initialisation to set the number of people
-        in this group.
+        Used just after initialisation to set the number of pis
+        in this group (one speech_seq instance for each)
         """
         if self.speech_seq == None:
             self.get_logger().info('Setting speech_seq list')
@@ -106,35 +178,62 @@ class SimPiNode(Node): #TODO
         When complete, calls function to send 'complete' message.
         """
         self.get_logger().info('In pi_speech_request_callback')
-        if self.speech_seq != None:
+
+        if self.speech_seq is not None:
             # Check if the message is for THIS pi.
             # If yes, submit the text to the speakers.
-            if msg.pi_id == self.pi_id and \
-            (msg.seq > self.speech_seq[msg.group_id]):
-                if self.person_id == msg.person_id: # current person on here must equal the person in the message. 
+            if msg.pi_id == self.pi_id and (
+                (msg.chaos_phase == False and msg.seq > self.speech_seq[msg.group_id]) or
+                (msg.chaos_phase == True and msg.seq > self.chaos_seq)
+            ):
+                if self.person_id == msg.person_id: # Current person matches the request
                     self.get_logger().info(f'Requesting tts for text: {msg.text}')
+                    self.audio_finished = False
                     self.text_to_speech(msg.text, msg.voice_id)
-                    complete = True
-                else: 
-                    self.get_logger().info(f'Person for whom speech was requested is not on this pi anymore.')
-                    complete = False # need to send a 'not completed' back if person has been removed
-                self.pi_speech_complete(
-                    complete,
-                    msg.seq, 
-                    msg.person_id, 
-                    msg.pi_id,
-                    msg.group_id, 
-                    msg.people_in_group,
-                    msg.text,
-                    msg.gpt_message_id,
-                    msg.directed_id,
-                    msg.relationship_ticked,
-                    msg.relationship_tick,
-                    msg.mention_question
-                )
-                self.speech_seq[msg.group_id] = msg.seq
-                
+                    # Start a timer to check for audio completion
+                    self.audio_check_timer = self.create_timer(
+                        0.1,  # Check every 0.1 seconds
+                        lambda: self.check_audio_and_complete(
+                            msg.seq,
+                            msg.person_id,
+                            msg.pi_id,
+                            msg.group_id,
+                            msg.people_in_group,
+                            msg.text,
+                            msg.gpt_message_id,
+                            msg.directed_id,
+                            msg.relationship_ticked,
+                            msg.relationship_tick,
+                            msg.mention_question
+                        )
+                    )
 
+                else:
+                    self.get_logger().info('Person for whom speech was requested is no longer on this Pi.')
+                    self.pi_speech_complete(False, msg.seq, msg.person_id, msg.pi_id, msg.group_id,
+                                            msg.people_in_group, msg.text, msg.gpt_message_id,
+                                            msg.directed_id, msg.relationship_ticked,
+                                            msg.relationship_tick, msg.mention_question)
+                if not msg.chaos_phase:
+                    self.speech_seq[msg.group_id] = msg.seq
+                else:
+                    self.chaos_seq = msg.seq
+
+    def check_audio_and_complete(self, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick, mention_question):
+        """
+        Check if the audio playback is complete and then call pi_speech_complete.
+        """
+        if self.audio_finished:
+            self.get_logger().info("Audio playback complete. Sending pi_speech_complete message.")
+            self.pi_speech_complete(
+                True, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id,
+                directed_id, relationship_ticked, relationship_tick, mention_question
+            )
+            # Stop the timer after completion
+            if hasattr(self, 'audio_check_timer'):
+                self.destroy_timer(self.audio_check_timer)
+                del self.audio_check_timer
+                
     def pi_speech_complete(self, complete, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick, mention_question):
         """
         Publish to say that the text has been spoken.
@@ -169,17 +268,7 @@ class SimPiNode(Node): #TODO
         for i in range(5):
             self.pi_person_updates_publisher.publish(msg)
 
-    def text_to_speech(self, to_speak, voice_id):
-        voicedir = os.path.expanduser('~/Documents/piper/') #Where onnx model files are stored on my machine
-        model = voicedir+voice_id
-        voice = PiperVoice.load(model)
-        wav_file = wave.open('output.wav', 'w')
-        text = to_speak
-        audio = voice.synthesize(text,wav_file)
-        # Play the .wav file
-        self.get_logger().info("Playing .wav file") #TODO implement streaming so they can stop talking mid-sentence.
-        os.system('aplay output.wav')
-
+    
 
 def main(args=None):
     rclpy.init(args=args)

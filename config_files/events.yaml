@@ -52,7 +52,7 @@ phases:
     id: 2
     timestamp:
       hours: 0
-      minutes: 5
+      minutes: 1
       seconds: 0
 
   3:
@@ -60,7 +60,7 @@ phases:
     id: 3
     timestamp:
       hours: 0
-      minutes: 10
+      minutes: 2
       seconds: 0
 
   4:
@@ -68,7 +68,7 @@ phases:
     id: 4
     timestamp:
       hours: 0
-      minutes: 15
+      minutes: 3
       seconds: 0
 
   5:
@@ -76,5 +76,5 @@ phases:
     id: 5
     timestamp:
       hours: 0
-      minutes: 20
+      minutes: 4
       seconds: 0

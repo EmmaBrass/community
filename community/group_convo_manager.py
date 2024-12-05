@@ -1,5 +1,6 @@
 import community.configuration as config
 from community.message_type import MessageType
+from community.question_phase import GetQuestionPhase
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -26,10 +27,9 @@ class GroupConvoManager():
         with open(events_path, 'r') as file:
             events_yaml = yaml.safe_load(file)
         self.events_data = events_yaml['events']
-        self.phase_data = events_yaml['phases']
-
-        # Note the time the group_node was created, for checking against events
-        self.initialise_time = time.time()
+        
+        # Question phase object for checking current question phase
+        self.question_phase = GetQuestionPhase()
 
         # Keep track of which events this group has already discussed
         self.discussed_event_ids = []
@@ -54,41 +54,21 @@ class GroupConvoManager():
         If yes, check if that event has already been talked about.
         If it has not been talked about, return the event_id.
         """
-        time_now = time.time()
-        elapsed_seconds = time_now - self.initialise_time
-        # Check if the current time is past the event time
-        for event_id, event in self.events_data.items():
-            timestamp = event['timestamp']
-            timestamp_seconds = self.convert_to_seconds(timestamp)
-            if elapsed_seconds > timestamp_seconds and elapsed_seconds < (timestamp_seconds + config.MAX_EVENT_DISCUSS_WAIT):
-                # Check if that event has already been discussed by this group
-                if event_id not in self.discussed_event_ids:
-                    self.discussed_event_ids.append(event_id)
-                    return int(event_id)  # Return event_id as integer
-        return 0  # Returns 0 if no event to talk about, otherwise return event_id to be discussed.
+        if config.EVENTS == True: # only check if events turned on in config file
+            time_now = time.time()
+            elapsed_seconds = time_now - self.initialise_time
+            # Check if the current time is past the event time
+            for event_id, event in self.events_data.items():
+                timestamp = event['timestamp']
+                timestamp_seconds = self.convert_to_seconds(timestamp)
+                if elapsed_seconds > timestamp_seconds and elapsed_seconds < (timestamp_seconds + config.MAX_EVENT_DISCUSS_WAIT):
+                    # Check if that event has already been discussed by this group
+                    if event_id not in self.discussed_event_ids:
+                        self.discussed_event_ids.append(event_id)
+                        return int(event_id)  # Return event_id as integer
+        return 0  # Returns 0 if no event to talk about, or events turned off in config file
     
-    def get_question_phase(self):
-        """
-        Gets the current question phase.
-        If 1, everyone is overly agreeable, helpful with each others' questions.
-        If 2, we go to people starting to incorporate their own opinions on topics.
-        If 3, we go to people getting more polarised and less helpful.  More emotive.
-        If 4, we go to full anger, no listening to each other.  All selfish.
-        If 5, we go to chaos, all talking over one another.
-        """
-        question_phase = 1 # We start in the overly agreeable phase
-
-        time_now = time.time()
-        elapsed_seconds = time_now - self.initialise_time
-        # Check is the current time is past a given phase start time.
-        for phase_id, phase in self.phase_data.items():
-            timestamp = phase['timestamp']
-            timestamp_seconds = self.convert_to_seconds(timestamp)
-            if elapsed_seconds > timestamp_seconds:
-                question_phase = phase_id
-
-        return question_phase  
-
+    
     def get_next(self, group_members, last_speaker, second_last_speaker, last_message_directed=0):
         """
         Get next speaker and speech type.
@@ -108,8 +88,8 @@ class GroupConvoManager():
         # event_id is 0 by default (no event to speak about)
         event_id = 0
 
-        question_phase = self.get_question_phase() #TODO this will AFFECT the message type 
-        # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 4 onwards.
+        question_phase = self.question_phase.get_question_phase() #TODO this will AFFECT the message type 
+        # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 3 onwards.
 
         if self.first_question_flag == True:
             message_type = MessageType.SWITCH.value
