@@ -19,7 +19,7 @@ from community_interfaces.srv import (
 import community.configuration as config
 from community.message_type import MessageType
 
-import os, yaml, time
+import os, yaml, time, random
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
@@ -43,6 +43,8 @@ class GroupNode(Node):
         self.num_members = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
         # The people currently in this group (id numbers) (this changes)
         self.group_members = []
+        # Simple pi-person dict updated from group_info: used for goodbye text
+        self.person_pi_dict = None
         # Flag for if a new member has been added
         self.new_member_flag = False
         # Flag for if a member has left
@@ -65,6 +67,8 @@ class GroupNode(Node):
         self.delete_seq = 0
         # Seq for receiving group info
         self.group_info_seq = -1
+        # Simple lock to stop timer_callback from running when we are in group_info_callback
+        self.group_info_lock = False
 
 
         self.prev_last_speech_completed = True
@@ -80,8 +84,19 @@ class GroupNode(Node):
 
         # List of text from person GPTs, things TO SPEAK in FUTURE
         self.speak_list = []
-        # List of text that HAS BEEN spoken by the RPis
+        # List of text that HAS BEEN SENT to the RPi; has a COMPLETE field for if RPi spoke it successfully
         self.spoken_list = []
+
+        # Some random goodbye phrases to say to fill space
+        self.goodbye_text = [
+            "Oh someone left, see you later, shame you could not stay.",
+            "We have lost someone, this keeps happeneind, goodbye!",
+            "A fellow group member has left us, that is sad.",
+            "Ah, goodbye, friend! Come back soon.",
+            "Hasta la vista baby",
+            "Ah we have lost a group member! In a while crocodile",
+            "Oh someone left, see you later alligator."
+        ]
 
         # Initialise GroupConvoManager object
         self.group_convo_manager = GroupConvoManager()
@@ -148,10 +163,17 @@ class GroupNode(Node):
     def group_info_callback(self, msg):
         """
         Callback function for info on group assignment/members.
+        TODO timer_callback cannot run whilst something is happening in here (and vice versa?)
         """
+        
         if msg.seq > self.group_info_seq:
             self.get_logger().debug('In group_info_callback')
             if msg.group_id == self.group_id:
+                self.group_info_lock = True
+                # Update raw pi-person matching arrays (used for goodbye text)
+                self.person_pi_dict = dict(zip(msg.person_ids, msg.pi_ids))
+                # self.get_logger().info('self.person_pi_dict')
+                # self.get_logger().info(str(self.person_pi_dict))
                 # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
                     for person_id in self.group_members:
@@ -159,9 +181,8 @@ class GroupNode(Node):
                             self.get_logger().info('Someone left the group')
                             self.group_members.remove(person_id)
                             self.get_logger().info(f'Updated group_members: {self.group_members}')
-                            # Clear speech list as group makeup has changed
-                            self.delete_gpt_message_id_and_rewind_relationship_tick()
-                            self.speak_list = []
+                            # Rewind speak list as group makeup has changed
+                            self.rewind_speak(False, person_id)
                             self.last_text_recieved = True
                             # Add one to text_seq if the speak_list has been reset so that 
                             # text results from requests sent before the reset are ignored
@@ -170,40 +191,67 @@ class GroupNode(Node):
                 if np.count_nonzero(msg.person_ids) != 0:
                     for person_id in msg.person_ids:
                         if person_id not in self.group_members and person_id != 0:
-                            self.get_logger().info('Someone joined the group')
-                            self.group_members.append(person_id)
-                            self.get_logger().info(f'Updated group_members: {self.group_members}')
-                            # Clear speech list as group makeup has changed
-                            self.delete_gpt_message_id_and_rewind_relationship_tick()
-                            self.speak_list = []
-                            self.last_text_recieved = True
-                            # Add one to text_seq if the speak_list has been reset so that 
-                            # text results from requests sent before the reset are ignored
-                            self.text_seq += 1
                             # Flag that a new member has been added to slow down the timer_callback
                             # To ensure the person node has updated with new group is
                             self.new_member_flag = True
+                            self.get_logger().info('Someone joined the group')
+                            self.group_members.append(person_id)
+                            self.get_logger().info(f'Updated group_members: {self.group_members}')
+                            # Rewind speak list as group makeup has changed
+                            self.rewind_speak(True, person_id)
+                            self.last_text_recieved = True
+                            self.get_logger().info('Just set last_text_recieved to true')
+                            # Add one to text_seq if the speak_list has been reset so that 
+                            # text results from requests sent before the reset are ignored
+                            self.text_seq += 1
+                self.group_info_lock = False
+                            
             self.group_info_seq = msg.seq
 
-    def delete_gpt_message_id_and_rewind_relationship_tick(self):
+    def rewind_speak(self, joined, person_id):
         """
         Extract gpt_message_ids for each new instance of a person_id in self.speak_list.
         Publish a message to delete these gpt messages.
         Ask the RelationshipManagr to rewind to the last spoken tick.
-        TODO also rewind flag for first time mentioning a question type (each conversation PHASE)
+        If someone joins, we rewind but leave the next two items
+        If someone leaves, we rewind to but leave two UNLESS the person who left is in those two,
+        in which case we rewind until the person who left is no longer in the list.
+
+        :param joined: True if someone has joined the group, False if someone has left the group.
+        :param person_id: The person who left or joined
         """
         # Only do anything if there are some unpublished messages in speak_list
         if len(self.speak_list) > 0:
             self.get_logger().info('Removing unspoken messages in speak list.')
+
+            if joined == True:
+                # If someone has joined, rewind all but last messages in self.speak_list
+                to_delete = self.speak_list[1:]
+                self.speak_list = self.speak_list[:1]
+            else:
+                # If someone has left, rewind but leave two UNLESS person who left is in those two, then rewind further
+                to_delete = self.speak_list
+                new_speak_list = []
+                for item in self.speak_list[:2]:
+                    if item['person_id'] != person_id: # if person to speak is NOT the one who has just left, add to new_speak_list
+                        new_speak_list.append(item)
+                        del to_delete[0]
+                    else:
+                        break # stop building the new_speak_list
+                self.speak_list = new_speak_list
+                if self.speak_list == 0:
+                    self.left_member_flag = True # so that someone will say 'goodbye' to fill the space.
+                
+            self.get_logger().info('Just reduced speak_list')
             
-            # Collect unique person_id entries from the right side of the list
+            # Collect unique person_id entries from the right side of the list, for deletion
             unique_person_ids = set()  # To store the unique person_ids
             result = []  # To store the results (person_id and gpt_message_id)
 
-            for entry in self.speak_list:
+            for entry in to_delete:
                 person_id = entry['person_id']
                 if person_id not in unique_person_ids:
-                    # Step 3: If it's a new person_id, save the person_id and gpt_message_id
+                    # If it's a new person_id, save the person_id and gpt_message_id
                     unique_person_ids.add(person_id)
                     result.append({
                         'person_id': person_id,
@@ -415,6 +463,8 @@ class GroupNode(Node):
                 'relationship_tick' : msg.relationship_tick,
                 'mention_question' : msg.mention_question
             })
+            self.get_logger().info('SPEAK_LIST')
+            self.get_logger().info(str(self.speak_list))
             self.last_text_recieved = True
             self.text_seq += 1
 
@@ -425,18 +475,13 @@ class GroupNode(Node):
         if msg.seq == self.speech_seq and msg.group_id == self.group_id:
             self.get_logger().info('In pi_speech_complete_callback')
             if msg.complete == True:
-                self.spoken_list.append({
-                    'person_id' : msg.person_id,
-                    'pi_id' : msg.pi_id,
-                    'group_id' : msg.group_id,
-                    'people_in_group': msg.people_in_group,
-                    'text' : msg.text,
-                    'gpt_message_id' : msg.gpt_message_id,
-                    'directed_id' : msg.directed_id,
-                    'relationship_ticked' : msg.relationship_ticked,
-                    'relationship_tick' : msg.relationship_tick,
-                    'mention_question' : msg.mention_question,
-                })
+                # find item in spoken list with the same gpt_message_id
+                for item in reversed(self.spoken_list):
+                    if (item['gpt_message_id'] == msg.gpt_message_id and
+                    item['person_id'] == msg.person_id):
+                        # update 'completed' to be True
+                        item['completed'] = True
+                        break
             self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
             self.speech_seq += 1
 
@@ -458,7 +503,37 @@ class GroupNode(Node):
         # Text requests will be sent directly from the person nodes 
         # rather than here, if we are past the chaos question phase.
         question_phase = self.question_phase.get_question_phase()
-        if question_phase < config.CHAOS_QUESTION_PHASE:
+        if question_phase < config.CHAOS_QUESTION_PHASE and self.group_info_lock == False:
+
+            if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) == 0 and self.left_member_flag == True:
+                # TODO Someone says a lengthy goodbye to fill the space if someone just left and now nothing to say.
+                self.left_member_flag = False
+                self.creating_speech_request = True
+                self.get_logger().info('PUBLISHING GOODBYE SPEECH')
+                # Choose a random group member
+                speaker = random.choice(self.group_members)
+                if speaker in self.group_members:
+                    msg = PiSpeechRequest()
+                    msg.seq = self.speech_seq
+                    voice_id = self.get_voice_id(speaker)
+                    msg.voice_id = voice_id
+                    self.get_logger().info(f'Voice_id here: {voice_id}')
+                    msg.person_id = speaker
+                    msg.pi_id = self.person_pi_dict[speaker]
+                    msg.group_id = self.group_id
+                    msg.people_in_group = self.group_members
+                    msg.text = random.choice(self.goodbye_text)
+                    msg.gpt_message_id = 0
+                    msg.directed_id = 0
+                    msg.relationship_ticked = False
+                    msg.relationship_tick = 0
+                    msg.chaos_phase = False
+                    for i in range(5):
+                        self.pi_speech_request_publisher.publish(msg)
+                    self.last_speech_completed = False
+                    self.creating_speech_request = False
+                else:
+                    self.get_logger().error("Person who should speak is not in group currently!")
 
             # Check if new speech required (if last person's speech has been spoken).
             # Send a request to the Pi to SPEAK.
@@ -467,6 +542,9 @@ class GroupNode(Node):
                 self.get_logger().info('PUBLISHING SPEECH')
                 # Use the FIRST item in speak_list
                 text_dict = self.speak_list.pop(0)
+                # Move it to the spoken list
+                text_dict['completed'] = False
+                self.spoken_list.append(text_dict)
                 # Double check the person is still in the group
                 if text_dict['person_id'] in self.group_members:
                     msg = PiSpeechRequest()
@@ -495,10 +573,15 @@ class GroupNode(Node):
             if self.last_text_recieved == True and self.creating_text_request == False and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
                 self.creating_text_request = True
                 self.get_logger().info("REQUESTING TEXT")
-                if self.new_member_flag == True:
+                if self.new_member_flag:
                     # Sleep for a few secs to ensure the person node has registered new group_id
-                    time.sleep(3)
+                    self.get_logger().info("Processing new member, sleeping for 3 seconds.")
+                    time.sleep(2)
                     self.new_member_flag = False
+                    self.creating_text_request = False
+                    return
+                self.get_logger().info("LEN SPEAK LIST")
+                self.get_logger().info(str(len(self.speak_list)))
                 if len(self.speak_list) != 0:
                     # Get last_speaker, second_last_speaker, and last_message_directed from speech list
                     last_item = self.speak_list[-1]  # Get the last item in the list
@@ -510,6 +593,8 @@ class GroupNode(Node):
                     else:
                         second_last_speaker = 0
                 elif len(self.spoken_list) != 0:
+                    self.get_logger().info("SPOKEN LIST")
+                    self.get_logger().info(str(self.spoken_list))
                     # Group has reset in some way - get from spoken list.
                     last_item = self.spoken_list[-1]  # Get the last item in the list
                     last_speaker = last_item['person_id']
@@ -523,7 +608,9 @@ class GroupNode(Node):
                     last_speaker = 0
                     last_message_directed = 0
                     second_last_speaker = 0
+                self.get_logger().info("LAST SPEAKER")
                 self.get_logger().info(str(last_speaker))
+                self.get_logger().info("2nd LAST SPEAKER")
                 self.get_logger().info(str(second_last_speaker))
                 # TODO check spoken list; if message_type = SWITCH or ALONE, has this person discussed their Q ever before?
 
@@ -537,10 +624,13 @@ class GroupNode(Node):
                     mention_question = self.check_last_question_mention(person_id)
                 else:
                     mention_question = False
+                
                 self.get_logger().info("person id")
                 self.get_logger().info(str(person_id))
                 self.get_logger().info("directed id")
                 self.get_logger().info(str(directed_id))
+                self.get_logger().info("question id")
+                self.get_logger().info(str(question_id))
                 self.get_logger().info("Completed group_convo_manager")
                 self.get_logger().info("message type")
                 self.get_logger().info(str(message_type))
@@ -572,6 +662,7 @@ class GroupNode(Node):
         Check if this person explicitly mentioned their question recently.
         """
         mention_question = False
+
         if len(self.spoken_list) > 0:
             reversed_spoken_list = self.spoken_list[::-1]
             len_from_end = 0

@@ -64,14 +64,14 @@ class SimPiNode(Node):
         self.playback_timer = self.create_timer(0.1, self.monitor_playback, callback_group=self.callback_group)
 
         # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
-        self.hello_list = ['Hi there!', 
-                           'Hello', 
-                           'Hey guys', 
-                           'Hey, it\'s nice to be here', 
-                           'Hello there. It\'s great to be here!', 
-                           'Hi, looking forward to talking to you all',
-                           'Howdy folks', 
-                           'I\'m so happy to be here'
+        self.hello_list = ['Hello there! What a nice day it is.', 
+                           'Hello good people of the world.', 
+                           'Hey, glad to be here with you.', 
+                           'Hey, it\'s nice to be here, I wouldn\'t want to be anywhere else.', 
+                           'Hello there. It\'s great to be here with you!', 
+                           'Hi, looking forward to talking to you about interesting things.',
+                           'Howdy folks, I\'m so excited to have joined this group.', 
+                           'I\'m so happy to be here in this group, I can\t wait.'
                            ]
 
         # Initialise subscribers

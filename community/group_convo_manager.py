@@ -75,6 +75,7 @@ class GroupConvoManager():
 
         :param group_members: Current group members.
         :param last_speaker: Who spoke most recently.
+        :param second_last_speaker: Who spoke second to last.
         :param last_message_directed: Who the last message was directed at, if anyone.
 
         :returns next_speaker: The next group member to talk
@@ -161,8 +162,8 @@ class GroupConvoManager():
                 next_speaker = random.choice(filtered_members)
                 self.back_and_forth_counter = 0
             elif last_message_directed == 0: # last message was not directed at anyone
-                # Choose anyone apart from last speaker
-                filtered_members = [item for item in group_members if item != last_speaker]
+                # Choose anyone apart from last speaker AND second to last speaker (as more than 2 people in group)
+                filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
                 # Last message was not directed; next one doesn't need to be
                 # But could be based on some percentage
@@ -185,6 +186,12 @@ class GroupConvoManager():
                 self.back_and_forth_counter = 0
             else:
                 print("ERROR! In unexpected part of if/else statement.")
+
+        # TODO check if the question_id is for a person who is still in the group...
+        # If not, then switch the question_id to current speaker
+        if self.question_id not in group_members:
+            message_type = MessageType.SWITCH.value
+            self.question_id = next_speaker
 
         return next_speaker, message_type, directed_id, event_id, self.question_id, question_phase
 

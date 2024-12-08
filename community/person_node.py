@@ -76,7 +76,7 @@ class PersonNode(Node):
         # For tracking speech from Pi for chaos phase
         self.last_chaos_completed = True
         # For chaos phase, checking were we are in request
-        self.creating_speech_request == False
+        self.creating_speech_request = False
         # List of things to say in chaos phase
         self.speak_list = []
         # Seq for chaos phase
@@ -350,7 +350,7 @@ class PersonNode(Node):
                     to_state="None", 
                     action="None", 
                     transition_description="None",
-                    question_id=0,
+                    question_id=self.person_id,
                     question_phase=question_phase,
                     mention_question=False
                 )

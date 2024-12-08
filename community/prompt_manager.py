@@ -1,6 +1,7 @@
 from community.message_type import MessageType
 import yaml, os, random
 from ament_index_python.packages import get_package_share_directory
+import community.configuration as config
 
 # Question Categories: 
 # Beauty
@@ -107,7 +108,8 @@ class PromptManager():
         if person:
             return person.get('name')
         else:
-            raise LookupError("person not found!")
+            raise LookupError(f"person not found! {person}")
+            
 
     def get_prompt_details(
             self, 
@@ -145,15 +147,14 @@ class PromptManager():
         # Get current question and question category
         question_person = self.people_data.get(question_id)
         if not question_person:
-            raise LookupError("person not found!")
+            raise LookupError(f"person not found! {question_id}")
         current_question = question_person.get('action_question') # TODO... compress action + deep questions ?
         question_category = question_person.get('question_category')
 
         # Get the response details for the question category, for this person who is speaking
         person = self.people_data.get(self.person_id)
-
         if not person:
-            raise LookupError("person not found!")
+            raise LookupError(f"person not found! {self.person_id}")
         responses = person.get('question_responses', {})
         response = responses.get(question_category)
         if not response:
@@ -166,87 +167,102 @@ class PromptManager():
 
         if question_phase == 1: # Overly agreeable
 
-            if question_id == self.person_id:
-                if mention_question == True:
+            if question_id == self.person_id: # if the question being discussed matches the person speaking
+                if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
                     prompt_details = "You are desparate for answers, but alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Your question is being discussed. Engage with the incredible help that others are giving you, and express great appreciation for it. "
+                        prompt_details += "Engage with the incredible help that others are giving you, and express great appreciation for it. "
+                    elif MessageType(message_type).name == 'ALONE':
+                        # Talk about feeling alone
+                        alone_response = person.get('alone_response')
+                        prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
-                You sympathise with them entirely, you want to help, you do not disagree with their sentiments and you seek to make them feel better about themselves. "
+                You sympathise with them entirely, you do not disagree with anything and you seek to make them feel better about themselves. "
+                if random.randint(0,100) < config.DATA_FACT_PERCENT:
+                    prompt_details+= "Select some pertinent, recent numberical data to help them answer their question. "
+                if MessageType(message_type).name == 'INTERRUPT': 
+                    # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
+                    prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
             
         elif question_phase == 2: # Own opinions coming in
             
             if question_id == self.person_id:
-                if mention_question == True:
+                if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Your question is still being discussed; engage critically with the advice others are giving you. "
+                        prompt_details += "Engage critically with the advice others are giving you relating to yor question. "
+                    elif MessageType(message_type).name == 'ALONE':
+                        # Talk about feeling alone
+                        alone_response = person.get('alone_response')
+                        prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
-                {response_category_description}  The reason for this is: {response_description} "
+                {response_category_description}  The reason for this is: {response_description}. "
+                if random.randint(0,100) < config.DATA_FACT_PERCENT:
+                    prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
-        elif question_phase == 3: # Anger towards questions that elicit difficut emotions #TODO using the difficult_categories listed above
+        elif question_phase == 3: # Anger towards questions that elicit difficut emotions
 
             if question_id == self.person_id:
-                if mention_question == True:
+                if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Others are being quite unhelpful; they are not really adequately answering your question. "
+                    elif MessageType(message_type).name == 'ALONE':
+                        # Talk about feeling alone
+                        alone_response = person.get('alone_response')
+                        prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
                 {response_category_description}  The reason for this is: {response_description}. "
                 if response_category in self.difficult_categories:
                     prompt_details += "React very negatively!  You hate difficult emotions and hate that this person is making you feel them! "
+                if random.randint(0,100) < config.DATA_FACT_PERCENT:
+                    prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
         elif question_phase == 4:
 
             if question_id == self.person_id:
-                if mention_question == True:
+                if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     prompt_details = f"Announce that your question is: {current_question} "
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Others are not being helpful at all; they are not answering your desparate question! They are useless. "
+                    elif MessageType(message_type).name == 'ALONE':
+                        # Talk about feeling alone
+                        alone_response = person.get('alone_response')
+                        prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question}  You don't care and don't want to talk about it! \
-                     It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
+                It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
 
         elif question_phase == 5: # Chaos, talking over one another #TODO + way to get them to talk over each other... and louder!
 
-            own_question = person.get('action_question')
-            prompt_details = f"Shout about your own question: {own_question} (alude to your question rather than stating it explicitly). \
+            prompt_details = f"Shout about your own question: {current_question} (alude to your question rather than stating it explicitly). \
                 You don't care about anyone else or any other question. \
                 You are desperate to find the answer to your own question, but no one will listen and no one seem to care. \
                 You are distraught. "
 
-        if MessageType(message_type).name == 'JOINING':
-            # Say hello
-            prompt_details += "You have just joined the group.  Say hello in a few words."
-        elif MessageType(message_type).name == 'LEAVING':
-            # Respond to previous thing and say bye.
-            prompt_details += "You are leaving the group.  Respond breifly to the current \
-                conversation topic and then say goodbye in a few words."
-        elif MessageType(message_type).name == 'SWITCH':
-            # Forcefully announce your own question
-            own_question = person.get('action_question')
-            prompt_details += f"Forcefully ask your OWN question: {own_question}" 
-        elif MessageType(message_type).name == 'OPEN':
-            # Just say whatever you like about the current question for 2 sentences
-            prompt_details += "Say whatever you like in about 2 sentences.  Incorporate what was just said by someone else, along with your own views on the current topic."
-        elif MessageType(message_type).name == 'ALONE':
-            # Talk about feeling alone
-            alone_response = person.get('alone_response')
-            prompt_details += f"You are the only one in the group. {alone_response}"
-        elif MessageType(message_type).name == 'INTERRUPT': 
+        # if MessageType(message_type).name == 'JOINING':
+        #     # Say hello
+        #     prompt_details += "You have just joined the group.  Say hello in a few words."
+        # elif MessageType(message_type).name == 'LEAVING':
+        #     # Respond to previous thing and say bye.
+        #     prompt_details += "You are leaving the group.  Respond breifly to the current \
+        #         conversation topic and then say goodbye in a few words."
+
+        if MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
             prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
+
         elif MessageType(message_type).name == 'DIRECT':
             # Get name of person the message is directed at using directed_id
             directed_name = self.get_name_by_id(directed_id)
@@ -258,6 +274,7 @@ class PromptManager():
                     prompt_details += f"Say something like: {transition_description}."
             if action != 'None':
                 prompt_details += f"Say something like: {action}"
+
         elif MessageType(message_type).name == 'EVENT':
             # Use event_id to get event description and urgency and discuss it.  
             event_description = self.get_event_description_by_id(event_id)
