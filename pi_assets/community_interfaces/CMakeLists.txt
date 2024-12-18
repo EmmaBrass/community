@@ -10,19 +10,26 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/GroupInfo.msg"
+  "msg/PersonTextRequest.msg"
+  "msg/PersonTextResult.msg"
   "msg/PiPersonUpdates.msg"
   "msg/PiSpeechComplete.msg"
+  "msg/PiSpeechRequest.msg"
+  "msg/DeleteGptMessageId.msg"
+  "msg/SimPiPersonAssign.msg"
+  "srv/RelationshipAction.srv"
 )
 
+# Ensure that any other packages depending on your messages also get the headers
+ament_export_dependencies(rosidl_default_runtime)
+
+# Enable testing, if applicable
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
+  # Skip linter checks for copyrights and git-related cpplint
   set(ament_cmake_cpplint_FOUND TRUE)
+  set(ament_cmake_copyright_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 

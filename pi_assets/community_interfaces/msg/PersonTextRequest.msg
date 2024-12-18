@@ -1,0 +1,16 @@
+uint32 seq
+int64 person_id
+int32 group_id
+int32 message_type
+int64 directed_id
+int64 question_id
+int32 question_phase
+int32 event_id
+bool relationship_ticked
+int32 relationship_tick
+bool state_changed
+string from_state
+string to_state
+string action 
+string transition_description
+bool mention_question

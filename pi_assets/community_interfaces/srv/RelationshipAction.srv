@@ -1,0 +1,23 @@
+# RelationshipAction.srv
+
+# Request
+int64 person_a                 # ID of the first person
+int64 person_b                 # ID of the second person
+string relationship_type        # Type of relationship (e.g., "romantic", "friendship")
+string new_state                # Optional: new state to set for the relationship
+int32 tick_id                   # Optional: tick_id for rewinding
+int32 group_id                  # Optional: group_id for rewinding
+int64[] group_members           # Current group members
+
+
+---
+# Response
+bool success                    # True if the operation was successful
+string current_state            # The current state of the relationship
+string message                  # Optional message for error reporting or additional info
+bool state_changed              # Has the relationship state between these two people changed?
+string from_state               # What state the relationship was in before
+string to_state                 # What state the relationship is in now
+string action                   # Description of any action occuring
+string transition_description   # Description of a transition between states
+int32 tick_id                   # Tick id for history of the relationships

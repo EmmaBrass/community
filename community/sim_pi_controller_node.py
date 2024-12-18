@@ -150,6 +150,8 @@ class SimPiController(Node):
             return
 
         msg = SimPiPersonAssign()
+        # TODO ... way to send 'hello' message as an audio file from here
+        # Seperate msg type of hello/goodbye on pi_speech_request topic?
         msg.pi_id = self.selected_pi
         msg.person_id = person_id
         msg.voice_id = self.get_voice_id(person_id)

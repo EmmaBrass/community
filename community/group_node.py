@@ -19,7 +19,9 @@ from community_interfaces.srv import (
 import community.configuration as config
 from community.message_type import MessageType
 
-import os, yaml, time, random
+from piper.voice import PiperVoice
+
+import os, yaml, time, random, wave
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
@@ -88,7 +90,7 @@ class GroupNode(Node):
         self.spoken_list = []
 
         # Some random goodbye phrases to say to fill space
-        self.goodbye_text = [
+        self.goodbye_list = [
             "Oh someone left, see you later, shame you could not stay.",
             "We have lost someone, this keeps happeneind, goodbye!",
             "A fellow group member has left us, that is sad.",
@@ -456,6 +458,7 @@ class GroupNode(Node):
                 'pi_id' : msg.pi_id,
                 'group_id' : msg.group_id,
                 'people_in_group': msg.people_in_group,
+                'message_type' : msg.message_type,
                 'text' : msg.text,
                 'gpt_message_id' : msg.gpt_message_id,
                 'directed_id' : msg.directed_id,
@@ -506,28 +509,31 @@ class GroupNode(Node):
         if question_phase < config.CHAOS_QUESTION_PHASE and self.group_info_lock == False:
 
             if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) == 0 and self.left_member_flag == True:
-                # TODO Someone says a lengthy goodbye to fill the space if someone just left and now nothing to say.
                 self.left_member_flag = False
                 self.creating_speech_request = True
                 self.get_logger().info('PUBLISHING GOODBYE SPEECH')
-                # Choose a random group member
+                # Choose a random group member.
                 speaker = random.choice(self.group_members)
+                voice_id = self.get_voice_id(speaker)
+                # Convert text to .wav audio file bytes.
+                text = random.choice(self.goodbye_list)
+                audio_uint8 = self.text_to_speech_bytes(text, voice_id)
                 if speaker in self.group_members:
                     msg = PiSpeechRequest()
                     msg.seq = self.speech_seq
-                    voice_id = self.get_voice_id(speaker)
                     msg.voice_id = voice_id
-                    self.get_logger().info(f'Voice_id here: {voice_id}')
                     msg.person_id = speaker
                     msg.pi_id = self.person_pi_dict[speaker]
                     msg.group_id = self.group_id
                     msg.people_in_group = self.group_members
-                    msg.text = random.choice(self.goodbye_text)
+                    msg.message_type = MessageType.GOODBYE.value
+                    msg.text = text
                     msg.gpt_message_id = 0
                     msg.directed_id = 0
                     msg.relationship_ticked = False
                     msg.relationship_tick = 0
                     msg.chaos_phase = False
+                    msg.audio_data = audio_uint8
                     for i in range(5):
                         self.pi_speech_request_publisher.publish(msg)
                     self.last_speech_completed = False
@@ -540,28 +546,34 @@ class GroupNode(Node):
             if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
                 self.creating_speech_request = True
                 self.get_logger().info('PUBLISHING SPEECH')
-                # Use the FIRST item in speak_list
+                # Use the FIRST item in speak_list.
                 text_dict = self.speak_list.pop(0)
-                # Move it to the spoken list
+                # Convert text to .wav audio file bytes.
+                voice_id = self.get_voice_id(text_dict['person_id'])
+                audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id)
+                self.get_logger().info("audio_uint8")
+                self.get_logger().info(str(audio_uint8))
+                # Move it to the spoken list.
                 text_dict['completed'] = False
                 self.spoken_list.append(text_dict)
-                # Double check the person is still in the group
+                # Double check the person is still in the group.
                 if text_dict['person_id'] in self.group_members:
                     msg = PiSpeechRequest()
                     msg.seq = self.speech_seq
-                    voice_id = self.get_voice_id(text_dict['person_id'])
                     msg.voice_id = voice_id
                     self.get_logger().info(f'Voice_id here: {voice_id}')
                     msg.person_id = text_dict['person_id']
                     msg.pi_id = text_dict['pi_id']
                     msg.group_id = text_dict['group_id']
                     msg.people_in_group = text_dict['people_in_group']
+                    msg.message_type = text_dict['message_type']
                     msg.text = text_dict['text']
                     msg.gpt_message_id = text_dict['gpt_message_id']
                     msg.directed_id = text_dict['directed_id']
                     msg.relationship_ticked = text_dict['relationship_ticked']
                     msg.relationship_tick = text_dict['relationship_tick']
                     msg.chaos_phase = False
+                    msg.audio_data = audio_uint8
                     for i in range(5):
                         self.pi_speech_request_publisher.publish(msg)
                     self.last_speech_completed = False
@@ -656,6 +668,43 @@ class GroupNode(Node):
                         question_phase, 
                         mention_question
                     )
+
+    def text_to_speech_bytes(self, text, voice_id):
+        """
+        Convert some speech into .wav bytes for sending.
+        """
+        try:
+            voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
+            model = voicedir + voice_id
+            voice = PiperVoice.load(model)
+            
+            # Define output .wav file
+            wav_file = f'audio_output_group_{self.group_id}.wav'
+            self.get_logger().info("MADE AUDIO OUTPUT FILE")
+            
+            # Open wave file in binary write mode
+            with wave.open(wav_file, 'wb') as wav:
+                # Set wave parameters (sample width, channels, frame rate)
+                wav.setnchannels(1)  # Mono audio
+                wav.setsampwidth(2)  # Typically 16-bit audio
+                wav.setframerate(22050)  # Set frame rate to 22.05 kHz
+                
+                # Synthesize text and write audio frames
+                voice.synthesize(text, wav)
+
+            # Convert audio to bytes
+            with open(wav_file, 'rb') as f:
+                audio_data = f.read()
+                audio_uint8 = list(audio_data)
+                self.get_logger().info("audio_data")
+                self.get_logger().info(str(audio_data))
+                
+            return audio_uint8
+
+        except Exception as e:
+            self.get_logger().error(f"Error in text_to_speech: {e}")
+        
+
             
     def check_last_question_mention(self, person_id):
         """

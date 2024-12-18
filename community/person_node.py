@@ -7,6 +7,7 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
 
+from community.message_type import MessageType
 from community_interfaces.msg import (
     PiSpeechRequest,
     PiSpeechComplete,
@@ -190,6 +191,7 @@ class PersonNode(Node):
             self.person_text_result_pub(
                 msg.seq, 
                 text, 
+                msg.message_type,
                 gpt_message_id, 
                 msg.directed_id, 
                 msg.relationship_ticked, 
@@ -200,6 +202,7 @@ class PersonNode(Node):
 
     def person_text_result_pub(self, 
                                seq: int, 
+                               message_type: int,
                                text: str, 
                                gpt_message_id: int, 
                                directed_id: int, 
@@ -220,6 +223,7 @@ class PersonNode(Node):
         msg.pi_id = self.pi_id
         msg.group_id = self.group_id
         msg.people_in_group = self.group_members
+        msg.message_type = message_type
         msg.text = text
         msg.gpt_message_id = gpt_message_id
         msg.directed_id = directed_id #TODO relationship tick and ticked ????
@@ -308,7 +312,7 @@ class PersonNode(Node):
         pi speech requests will be managed directly from the person nodes.
         """
         # Text requests will be sent directly from here rather than the group nodes,
-        #  if we are past the chaos question phase.
+        # IF we are past the chaos question phase only.
         question_phase = self.question_phase.get_question_phase()
         if question_phase >= config.CHAOS_QUESTION_PHASE:
 
@@ -327,6 +331,7 @@ class PersonNode(Node):
                     msg.pi_id = text_dict['pi_id']
                     msg.group_id = text_dict['group_id']
                     msg.people_in_group = text_dict['people_in_group']
+                    msg.message_type = text_dict['message_type']
                     msg.text = text_dict['text']
                     msg.gpt_message_id = text_dict['gpt_message_id']
                     msg.directed_id = text_dict['directed_id']
@@ -342,7 +347,7 @@ class PersonNode(Node):
 
             if len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
                 prompt_details = self.prompt_manager.get_prompt_details(
-                    message_type=2,
+                    message_type=MessageType.OPEN.value,
                     directed_id=0, 
                     event_id=0, 
                     state_changed=False, 
@@ -371,6 +376,7 @@ class PersonNode(Node):
                     'pi_id' : self.pi_id,
                     'group_id' : self.group_id,
                     'people_in_group': self.group_members,
+                    'message_type' : MessageType.OPEN.value,
                     'text' : text,
                     'gpt_message_id' : gpt_message_id,
                     'directed_id' : msg.directed_id,

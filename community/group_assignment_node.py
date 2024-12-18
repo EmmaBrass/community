@@ -11,13 +11,18 @@ from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
 
 from community_interfaces.msg import (
+    PiSpeechRequest,
     PiPersonUpdates,
     GroupInfo
 )
 import community.configuration as config
+from community.message_type import MessageType
 
-import cv2, math, time, logging, pickle, random
-import numpy as np
+from piper.voice import PiperVoice
+import random, os, yaml, wave
+
+from ament_index_python.packages import get_package_share_directory
+
 
 
 class GroupAssignmentNode(Node):
@@ -26,6 +31,8 @@ class GroupAssignmentNode(Node):
         super().__init__('group_assignment_node')
 
         self.group_info_seq = 0
+
+        self.hello_seq = 1
 
         # Initialize the assignments list for what person is at what pi
         # Very similar to GROUP_PI_ASSIGNMENTS but also gives a person_id for each pi_id
@@ -39,8 +46,25 @@ class GroupAssignmentNode(Node):
             self.pi_person_assignments.append({'group_id': group_id, 'members': members})
         self.get_logger().info(str(self.pi_person_assignments))
 
+        # Get the path to the `people.yaml` file
+        package_share_dir = get_package_share_directory('community')
+        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
+        self.people_data = self.load_people(people_path)
+
+        # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
+        self.hello_list = ['Hello there! What a nice day it is.', 
+                           'Hello good people of the world.', 
+                           'Hey, glad to be here with you.', 
+                           'Hey, it\'s nice to be here, I wouldn\'t want to be anywhere else.', 
+                           'Hello there. It\'s great to be here with you!', 
+                           'Hi, looking forward to talking to you about interesting things.',
+                           'Howdy folks, I\'m so excited to have joined this group.', 
+                           'I\'m so happy to be here in this group, I can\t wait.'
+                           ]
+
         # Initialise publisher
         self.group_info_publisher = self.create_publisher(GroupInfo, 'group_info', 10)
+        self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
         timer_period = 0.5  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
 
@@ -54,6 +78,12 @@ class GroupAssignmentNode(Node):
         # Prevent unused variable warnings
         self.pi_person_updates_subscription
 
+    def load_people(self, file_path): # TODO move this function and some others into a helper class... these are reused a lot
+        """ Load people data from the YAML file. """
+        with open(file_path, 'r') as file:
+            data = yaml.safe_load(file)
+        return data['people']
+
     def update_pi_person_assignments(self, pi_id: int, new_person_id:int):
         """
         Update the person_id assigned to a specific pi_id in self.pi_person_assignments.
@@ -64,14 +94,87 @@ class GroupAssignmentNode(Node):
         """
         # Loop through each group in the assignments
         for group in self.pi_person_assignments:
+            current_group_id = group['group_id']
             # Loop through each member in the group
             for member in group['members']:
                 # Check if the current member has the specified pi_id
                 if member['pi_id'] == pi_id:
-                    # Update the person_id
-                    member['person_id'] = new_person_id
-                    return True  # Return True if the update was successful
+                    if member['person_id'] != new_person_id:
+                        member['person_id'] = new_person_id
+                        voice_id = self.get_voice_id(new_person_id)
+                        # Convert text to .wav audio file bytes.
+                        text = random.choice(self.hello_list)
+                        audio_uint8 = self.text_to_speech_bytes(text, voice_id)
+                        # Publish a PiSpeechRequest so that the person can say hello
+                        # TODO MAKE the audio_data using predefined hello list and voice_id; get voice_id from person id
+                        # TODO ONLY do this if person has MOVED to a new, non-zero pi !!!
+                        self.pi_speech_request_pub(new_person_id, pi_id, current_group_id, voice_id, text, audio_uint8)
+                    return True  # Return True if an update took place
         return False  # Return False if the pi_id was not found in any group
+    
+    def pi_speech_request_pub(self, person_id, pi_id, group_id, voice_id, text, audio_uint8):
+        msg = PiSpeechRequest()
+        msg.seq = self.hello_seq
+        msg.voice_id = voice_id
+        msg.person_id = person_id
+        msg.pi_id = pi_id
+        msg.group_id = group_id
+        msg.people_in_group = []
+        msg.message_type = MessageType.HELLO.value
+        msg.text = text
+        msg.gpt_message_id = "0"
+        msg.directed_id = 0
+        msg.relationship_ticked = False
+        msg.relationship_tick = 0
+        msg.chaos_phase = False
+        msg.audio_data = audio_uint8
+        for i in range(5):
+            self.pi_speech_request_publisher.publish(msg)
+        self.hello_seq += 1
+    
+    def get_voice_id(self, person_id):
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = self.people_data.get(person_id, {})
+        voice_id = person_data.get('voice_id', None)
+        self.get_logger().info(f"Voice ID is: {voice_id}")
+        if voice_id == None:
+            self.get_logger().info("Error! Voice_id not found for this person_id")
+        return str(voice_id)
+    
+    def text_to_speech_bytes(self, text, voice_id):
+        """
+        Convert some speech into .wav bytes for sending.
+        """
+        try:
+            voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
+            model = voicedir + voice_id
+            voice = PiperVoice.load(model)
+            
+            # Define output .wav file
+            wav_file = f'audio_output_hello_group_{self.group_id}.wav'
+            self.get_logger().info("MADE 'HELLO' AUDIO OUTPUT FILE")
+            
+            # Open wave file in binary write mode
+            with wave.open(wav_file, 'wb') as wav:
+                # Set wave parameters (sample width, channels, frame rate)
+                wav.setnchannels(1)  # Mono audio
+                wav.setsampwidth(2)  # Typically 16-bit audio
+                wav.setframerate(22050)  # Set frame rate to 22.05 kHz
+                
+                # Synthesize text and write audio frames
+                voice.synthesize(text, wav)
+
+            # Convert audio to bytes
+            with open(wav_file, 'rb') as f:
+                audio_data = f.read()
+                audio_uint8 = list(audio_data)
+                self.get_logger().info("audio_data")
+                self.get_logger().info(str(audio_data))
+                
+            return audio_uint8
+
+        except Exception as e:
+            self.get_logger().error(f"Error in text_to_speech: {e}")
 
     def pi_person_updates_callback(self, msg):
         """

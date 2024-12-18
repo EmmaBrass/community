@@ -3,10 +3,10 @@ int64 person_id
 int32 pi_id
 int32 group_id
 int64[] people_in_group
+int32 message_type
 string text
 string gpt_message_id
 int64 directed_id
-bool complete
 bool relationship_ticked
 int32 relationship_tick
 bool mention_question
