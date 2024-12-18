@@ -151,7 +151,7 @@ class GroupAssignmentNode(Node):
             voice = PiperVoice.load(model)
             
             # Define output .wav file
-            wav_file = f'audio_output_hello_group_{self.group_id}.wav'
+            wav_file = f'audio_output_hello.wav'
             self.get_logger().info("MADE 'HELLO' AUDIO OUTPUT FILE")
             
             # Open wave file in binary write mode
@@ -168,8 +168,6 @@ class GroupAssignmentNode(Node):
             with open(wav_file, 'rb') as f:
                 audio_data = f.read()
                 audio_uint8 = list(audio_data)
-                self.get_logger().info("audio_data")
-                self.get_logger().info(str(audio_data))
                 
             return audio_uint8
 

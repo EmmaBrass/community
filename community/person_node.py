@@ -202,8 +202,8 @@ class PersonNode(Node):
 
     def person_text_result_pub(self, 
                                seq: int, 
-                               message_type: int,
                                text: str, 
+                               message_type: int,
                                gpt_message_id: int, 
                                directed_id: int, 
                                relationship_ticked: bool, 

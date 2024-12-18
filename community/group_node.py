@@ -551,8 +551,6 @@ class GroupNode(Node):
                 # Convert text to .wav audio file bytes.
                 voice_id = self.get_voice_id(text_dict['person_id'])
                 audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id)
-                self.get_logger().info("audio_uint8")
-                self.get_logger().info(str(audio_uint8))
                 # Move it to the spoken list.
                 text_dict['completed'] = False
                 self.spoken_list.append(text_dict)
@@ -696,15 +694,11 @@ class GroupNode(Node):
             with open(wav_file, 'rb') as f:
                 audio_data = f.read()
                 audio_uint8 = list(audio_data)
-                self.get_logger().info("audio_data")
-                self.get_logger().info(str(audio_data))
                 
             return audio_uint8
 
         except Exception as e:
             self.get_logger().error(f"Error in text_to_speech: {e}")
-        
-
             
     def check_last_question_mention(self, person_id):
         """
