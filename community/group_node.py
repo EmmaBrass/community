@@ -64,7 +64,7 @@ class GroupNode(Node):
         # Seq for sending text requests
         self.text_seq = 0
         # Seq for sending speech requests
-        self.speech_seq = 0
+        self.speech_seq = 1
         # Seq for sending delete gpt message id
         self.delete_seq = 0
         # Seq for receiving group info
@@ -171,11 +171,9 @@ class GroupNode(Node):
         if msg.seq > self.group_info_seq:
             self.get_logger().debug('In group_info_callback')
             if msg.group_id == self.group_id:
-                self.group_info_lock = True
+                self.group_info_lock = True # TODO being used???
                 # Update raw pi-person matching arrays (used for goodbye text)
                 self.person_pi_dict = dict(zip(msg.person_ids, msg.pi_ids))
-                # self.get_logger().info('self.person_pi_dict')
-                # self.get_logger().info(str(self.person_pi_dict))
                 # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
                     for person_id in self.group_members:
@@ -515,6 +513,7 @@ class GroupNode(Node):
                 # Choose a random group member.
                 speaker = random.choice(self.group_members)
                 voice_id = self.get_voice_id(speaker)
+                color = self.get_color(speaker)
                 # Convert text to .wav audio file bytes.
                 text = random.choice(self.goodbye_list)
                 audio_uint8 = self.text_to_speech_bytes(text, voice_id)
@@ -524,6 +523,7 @@ class GroupNode(Node):
                     msg.voice_id = voice_id
                     msg.person_id = speaker
                     msg.pi_id = self.person_pi_dict[speaker]
+                    msg.color = color
                     msg.group_id = self.group_id
                     msg.people_in_group = self.group_members
                     msg.message_type = MessageType.GOODBYE.value
@@ -550,6 +550,7 @@ class GroupNode(Node):
                 text_dict = self.speak_list.pop(0)
                 # Convert text to .wav audio file bytes.
                 voice_id = self.get_voice_id(text_dict['person_id'])
+                color = self.get_color(text_dict['person_id'])
                 audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id)
                 # Move it to the spoken list.
                 text_dict['completed'] = False
@@ -562,6 +563,7 @@ class GroupNode(Node):
                     self.get_logger().info(f'Voice_id here: {voice_id}')
                     msg.person_id = text_dict['person_id']
                     msg.pi_id = text_dict['pi_id']
+                    msg.color = color
                     msg.group_id = text_dict['group_id']
                     msg.people_in_group = text_dict['people_in_group']
                     msg.message_type = text_dict['message_type']
@@ -731,7 +733,15 @@ class GroupNode(Node):
         if voice_id == None:
             self.get_logger().info("Error! Voice_id not found for this person_id")
         return str(voice_id)
-            
+    
+    def get_color(self, person_id):
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = self.people_data.get(person_id, {})
+        color = person_data.get('color', None)
+        self.get_logger().info(f"Color is: {color}")
+        if color == None:
+            self.get_logger().info("Error! Color not found for this person_id")
+        return color
             
 
 def main(args=None):

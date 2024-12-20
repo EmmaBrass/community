@@ -50,6 +50,11 @@ class PersonNode(Node):
         self.get_logger().info(f"Voice ID is: {self.voice_id}")
         if self.voice_id == None:
             self.get_logger().info("Error! Voice_id not found for this person_id")
+        # Get color
+        self.color = person_data.get('color', None)
+        self.get_logger().info(f"Color is: {self.color}")
+        if self.color == None:
+            self.get_logger().info("Error! Color not found for this person_id")
 
         self.person = PersonLLM(
             person_id = self.person_id,
@@ -329,6 +334,7 @@ class PersonNode(Node):
                     self.get_logger().info(f'Voice_id here: {self.voice_id}')
                     msg.person_id = text_dict['person_id']
                     msg.pi_id = text_dict['pi_id']
+                    msg.color = self.color
                     msg.group_id = text_dict['group_id']
                     msg.people_in_group = text_dict['people_in_group']
                     msg.message_type = text_dict['message_type']

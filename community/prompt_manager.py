@@ -143,12 +143,11 @@ class PromptManager():
         # Also need to deal with how this will work with history rewinds
         # TODO responses could also be modulated by their relationship with another person!
 
-
         # Get current question and question category
         question_person = self.people_data.get(question_id)
         if not question_person:
             raise LookupError(f"person not found! {question_id}")
-        current_question = question_person.get('action_question') # TODO... compress action + deep questions ?
+        current_question = question_person.get('question')
         question_category = question_person.get('question_category')
 
         # Get the response details for the question category, for this person who is speaking

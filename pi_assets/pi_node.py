@@ -14,7 +14,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-import subprocess
+import subprocess, os
 
 from community_interfaces.msg import (
     PiPersonUpdates,
@@ -46,8 +46,11 @@ class PiNode(Node):
         # Use mutually exclusive callback group to avoid overlapping callbacks
         self.callback_group = MutuallyExclusiveCallbackGroup()
 
+        # Register connection
+        self.connected = False
+
         # Seq list for receiving speech requests - one item for each group
-        self.speech_seq = None
+        self.speech_seq = 0
 
         # Seq for chaos phase
         self.chaos_seq = 0
@@ -57,6 +60,8 @@ class PiNode(Node):
 
         # Flag indicating if audio playback is finished
         self.audio_finished = True  
+
+        self.parsing_speech_request = False
 
         # SPI connection:
         self.spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
@@ -69,9 +74,9 @@ class PiNode(Node):
         self.pn532.SAM_configuration()
 
         # Set up NeoPixel LEDs
-        pixel_pin = board.D12
+        pixel_pin = board.D21
         self.num_pixels = 8
-        ORDER = neopixel.RGB
+        ORDER = neopixel.GRB
         self.pixels = neopixel.NeoPixel(
             pixel_pin,
             self.num_pixels,
@@ -112,13 +117,26 @@ class PiNode(Node):
         self.pi_speech_request_subscription 
         self.group_info_subscription
 
-    def scanning_led_effect(self):
+    def group_info_callback(self, msg):
+        """
+        Used just after initialisation to confirm network connection.
+        """
+        if self.connected == False:
+            self.get_logger().info('Connected to network.')
+            # # Count the number of members of the group and set the speech_seq
+            # self.speech_seq = [-1]*msg.num_pis # Seq list for receiving speech requests - one item for each group
+            self.connected = True
+            self.say_connected()
+            self.flash_led()
+
+    def scanning_led_effect(self, color):
         """Create a scanning LED effect."""
+        self.get_logger().info("In scanning led effect.")
         # Turn off all LEDs
         self.pixels.fill((0,0,0))
         
         # Turn on the current LED
-        self.pixels[self.led_index] = (255, 0, 0)  # Red color
+        self.pixels[self.led_index] = (color[0], color[1], color[2])  # RGB color
         self.pixels.show()
 
         # Update the index for the next LED
@@ -128,17 +146,42 @@ class PiNode(Node):
         if self.led_index >= self.num_pixels - 1 or self.led_index <= 0:
             self.direction *= -1
 
+    def flash_led(self):
+        """
+        An indicator LED flash, with the LEDs left on afterwards.
+        """
+        self.get_logger().info("Flashing LEDs.")
+        # Flash the LEDs 3 times
+        for i in range(3):
+            self.pixels.fill((0,0,0))
+            self.pixels.show()
+            time.sleep(0.5)
+            self.pixels.fill((100,100,100)) # Flash white
+            self.pixels.show()
+            time.sleep(0.5)
+
+    def say_connected(self):
+        """
+        Speech to indicate this pi is connected and running fine.
+        """
+        # Play 'connected' audio
+        self.get_logger().info("Playing connected.wav file")
+        file_path = 'connected.wav'
+        os.system(f"aplay {file_path}")
+
     def stop_scanning_leds(self):
         """Stop the LED scanning effect and turn off LEDs."""
-        if self.led_timer:
-            self.destroy_timer(self.led_timer)
-            self.led_timer = None
+        self.get_logger().info("Stopping LED scanning.")
         self.pixels.fill((0,0,0))  # Ensure all LEDs are turned off
         self.pixels.show()
+        if hasattr(self, 'led_timer'):
+            self.get_logger().info("Destroying led_timer.")
+            self.destroy_timer(self.led_timer)
+            del self.led_timer
 
-    def data_to_speech(self, audio_data):
+    def data_to_speech(self, audio_data, color):
         """
-        Convert audio data into a .wab file and then play the .wav file.
+        Convert audio data into a .wav file and then play the .wav file.
         """
         file_path = 'output.wav'
         try:
@@ -156,7 +199,9 @@ class PiNode(Node):
         self.stop_playback = False
 
         # Start LED scanning effect
-        self.led_timer = self.create_timer(0.1, self.scanning_led_effect)  # Update LEDs every 0.1s
+        self.led_timer = self.create_timer(
+            0.1, lambda: self.scanning_led_effect(color)
+        )  # Update LEDs every 0.1s
 
     def stop_audio_playback(self):
         """
@@ -164,34 +209,23 @@ class PiNode(Node):
         """
         if self.playback_process and self.playback_process.poll() is None:  # Process is still running
             self.playback_process.terminate()
-            self.get_logger().info("Stopped playback.")
+            self.get_logger().info("Stopped playback by force.")
             self.playback_process = None
-        self.stop_playback = True
+        self.stop_playback = False #True
         self.audio_finished = True
+        self.stop_scanning_leds()
 
     def monitor_playback(self):
         """
         Monitor the playback process and update the finished flag when playback ends.
         """
         if self.playback_process and self.playback_process.poll() is not None:  # Playback finished naturally
-            self.get_logger().info("Playback completed.")
+            self.get_logger().info("Playback completed naturally.")
             self.audio_finished = True
             self.playback_process = None
             self.stop_scanning_leds()
         elif self.stop_playback:
             self.stop_audio_playback()  # Handle forced stop
-            self.stop_scanning_leds()
-
-    def group_info_callback(self, msg):
-        """
-        Used just after initialisation to set the number of people
-        in this group.
-        """
-        self.get_logger().info('In group_info_callback')
-        if self.speech_seq == None:
-            self.get_logger().info('Setting speech_seq list')
-            # Count the number of members of the group and set the speech_seq
-            self.speech_seq = [-1]*msg.num_pis # Seq list for receiving speech requests - one item for each group
 
     def pi_speech_request_callback(self, msg):
         """
@@ -200,21 +234,24 @@ class PiNode(Node):
         """
         self.get_logger().info('In pi_speech_request_callback')
 
-        if self.speech_seq is not None: # Then ready to speak
+        if self.connected and not self.parsing_speech_request: # Then ready to speak
+            self.parsing_speech_request = True
             # Check if the message is for THIS pi.
             # If yes, submit the text to the speakers.
             if msg.pi_id == self.pi_id and (
                 (msg.chaos_phase == False and 
-                 ((msg.message_type == 0 and msg.seq>self.hello_seq) or (msg.message_type != 0 and msg.seq > self.speech_seq[msg.group_id]))) or
+                 ((msg.message_type == 0 and msg.seq > self.hello_seq) or (msg.message_type != 0 and msg.seq > self.speech_seq))) or
                 (msg.chaos_phase == True and msg.seq > self.chaos_seq)
             ):
                 if self.person_id == msg.person_id: # Current person matches the request
                     self.get_logger().info(f'Requesting audio play for .wav data: {msg.text}')
+                    self.stop_scanning_leds() # stop any previous LED scanning
                     self.audio_finished = False
-                    self.data_to_speech(msg.audio_data)
+                    self.data_to_speech(msg.audio_data, msg.color)
                     # Start a timer to check for audio completion
+                    self.get_logger().info("Making audio_check_timer.")
                     self.audio_check_timer = self.create_timer(
-                        0.1,  # Check every 0.1 seconds
+                        0.2,  # Check every 0.1 seconds
                         lambda: self.check_audio_and_complete(
                             msg.seq,
                             msg.person_id,
@@ -229,7 +266,8 @@ class PiNode(Node):
                             msg.mention_question,
                         )
                     )
-
+                    self.get_logger().info("audio_check_timer")
+                    self.get_logger().info(str(self.audio_check_timer))
                 else:
                     self.get_logger().info('Person for whom speech was requested is no longer on this Pi.')
                     if msg.message_type != 0:
@@ -241,11 +279,27 @@ class PiNode(Node):
                     if msg.message_type == 0:
                         self.hello_seq = msg.seq
                     else:
-                        self.speech_seq[msg.group_id] = msg.seq
+                        self.speech_seq = msg.seq
                 else:
                     self.chaos_seq = msg.seq
+                self.parsing_speech_request = False
+            else:
+                self.parsing_speech_request = False
 
-    def check_audio_and_complete(self, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick, mention_question):
+    def check_audio_and_complete(
+        self, 
+        seq, 
+        person_id, 
+        pi_id, 
+        group_id, 
+        people_in_group, 
+        text, 
+        gpt_message_id, 
+        directed_id, 
+        relationship_ticked, 
+        relationship_tick, 
+        mention_question
+    ):
         """
         Check if the audio playback is complete and then call pi_speech_complete.
         """
@@ -257,10 +311,26 @@ class PiNode(Node):
             )
             # Stop the timer after completion
             if hasattr(self, 'audio_check_timer'):
+                self.get_logger().info("Destroying audio_check_timer.")
                 self.destroy_timer(self.audio_check_timer)
                 del self.audio_check_timer
+            self.audio_finished = False
                 
-    def pi_speech_complete(self, complete, seq, person_id, pi_id, group_id, people_in_group, text, gpt_message_id, directed_id, relationship_ticked, relationship_tick, mention_question):
+    def pi_speech_complete(
+        self, 
+        complete, 
+        seq,
+        person_id, 
+        pi_id, 
+        group_id, 
+        people_in_group, 
+        text, 
+        gpt_message_id, 
+        directed_id, 
+        relationship_ticked, 
+        relationship_tick, 
+        mention_question
+    ):
         """
         Publish to say that the text has been spoken.
         """

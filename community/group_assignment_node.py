@@ -59,7 +59,7 @@ class GroupAssignmentNode(Node):
                            'Hello there. It\'s great to be here with you!', 
                            'Hi, looking forward to talking to you about interesting things.',
                            'Howdy folks, I\'m so excited to have joined this group.', 
-                           'I\'m so happy to be here in this group, I can\t wait.'
+                           'I\'m so happy to be here in this group, I cannot wait.'
                            ]
 
         # Initialise publisher
@@ -101,23 +101,26 @@ class GroupAssignmentNode(Node):
                 if member['pi_id'] == pi_id:
                     if member['person_id'] != new_person_id:
                         member['person_id'] = new_person_id
-                        voice_id = self.get_voice_id(new_person_id)
-                        # Convert text to .wav audio file bytes.
-                        text = random.choice(self.hello_list)
-                        audio_uint8 = self.text_to_speech_bytes(text, voice_id)
-                        # Publish a PiSpeechRequest so that the person can say hello
-                        # TODO MAKE the audio_data using predefined hello list and voice_id; get voice_id from person id
-                        # TODO ONLY do this if person has MOVED to a new, non-zero pi !!!
-                        self.pi_speech_request_pub(new_person_id, pi_id, current_group_id, voice_id, text, audio_uint8)
+                        self.get_logger().info("new_person_id")
+                        self.get_logger().info(str(new_person_id))
+                        if new_person_id != 0:
+                            voice_id = self.get_voice_id(new_person_id)
+                            color = self.get_color(new_person_id)
+                            # Convert text to .wav audio file bytes.
+                            text = random.choice(self.hello_list)
+                            audio_uint8 = self.text_to_speech_bytes(text, voice_id)
+                            # Publish a PiSpeechRequest so that the person can say hello
+                            self.pi_speech_request_pub(new_person_id, pi_id, color, current_group_id, voice_id, text, audio_uint8)
                     return True  # Return True if an update took place
         return False  # Return False if the pi_id was not found in any group
     
-    def pi_speech_request_pub(self, person_id, pi_id, group_id, voice_id, text, audio_uint8):
+    def pi_speech_request_pub(self, person_id, pi_id, color, group_id, voice_id, text, audio_uint8):
         msg = PiSpeechRequest()
         msg.seq = self.hello_seq
         msg.voice_id = voice_id
         msg.person_id = person_id
         msg.pi_id = pi_id
+        msg.color = color
         msg.group_id = group_id
         msg.people_in_group = []
         msg.message_type = MessageType.HELLO.value
@@ -140,6 +143,15 @@ class GroupAssignmentNode(Node):
         if voice_id == None:
             self.get_logger().info("Error! Voice_id not found for this person_id")
         return str(voice_id)
+    
+    def get_color(self, person_id):
+        # Now initialize the person object using person attributes from config yaml file
+        person_data = self.people_data.get(person_id, {})
+        color = person_data.get('color', None)
+        self.get_logger().info(f"Color is: {color}")
+        if color == None:
+            self.get_logger().info("Error! Color not found for this person_id")
+        return color
     
     def text_to_speech_bytes(self, text, voice_id):
         """
@@ -172,7 +184,7 @@ class GroupAssignmentNode(Node):
             return audio_uint8
 
         except Exception as e:
-            self.get_logger().error(f"Error in text_to_speech: {e}")
+            self.get_logger().error(f"Error in text_to_speech_bytes: {e}")
 
     def pi_person_updates_callback(self, msg):
         """

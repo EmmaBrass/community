@@ -7,8 +7,9 @@ people:
     voice_id: "en_GB-alba-medium.onnx"
     gender: "female"
     age: 30
+    color: [255,100,100] # In RGB
     history: "I love to garden."
-    action_question: "Should I have kids?"
+    question: "Should I have kids?"
     question_category: "parenting"
     deep_question: "What responsibilities do we bear in bringing new life into the world?"
     alone_response: "You comment on how you feel lonely."
@@ -60,8 +61,9 @@ people:
     voice_id: "en_GB-alan-medium.onnx"
     gender: "male"
     age: 35
+    color: [0,100,200] # In RGB
     history: "I am a physicist."
-    action_question: "Should I invest in cryptocurrency or stick to traditional savings?"
+    question: "Should I invest in cryptocurrency or stick to traditional savings?"
     question_category: "finance"
     deep_question: "How do we determine the value of trust in a financial system?"
     alone_response: "You say you are happy to be alone.  People overwhelm you sometimes."
@@ -113,8 +115,9 @@ people:
     voice_id: "en_GB-northern_english_male-medium.onnx"
     gender: "male"
     age: 29
+    color: [15,250,10] # In RGB
     history: "I am thinking of moving to Australia."
-    action_question: "Should I travel alone to explore new places?"
+    question: "Should I travel alone to explore new places?"
     question_category: "travel"
     deep_question: "What can solitude teach us about the self?"
     alone_response: "You reminise on the good time, when people were around."
@@ -167,9 +170,10 @@ people:
     voice_id: "en_GB-jenny_dioco-medium.onnx"
     gender: "female"
     age: 53
+    color: [155,155,0] # In RGB
     history: "I like art."
     personality: "I am a old and quite weary women.  I am kind but I take a while to get to know."
-    action_question: "Should I read really intellectual books to try to further myself?"
+    question: "Should I read really intellectual books to try to further myself?"
     question_category: "education"
     deep_question: "How do we distinguish between learning for self-improvement and learning as an obligation to others?"
     alone_response: "You mumble gibberish to yourself, like you are thinking aloud."
@@ -220,6 +224,7 @@ people:
     voice_id: ""
     gender: "male"
     age: 44
+    color: [255,0,200] # In RGB
     history: "I used to work in the navy."
     question: "Should I go to the gym more often?"
     question_category: "health"
