@@ -201,7 +201,8 @@ class PersonNode(Node):
                 msg.directed_id, 
                 msg.relationship_ticked, 
                 msg.relationship_tick,
-                msg.mention_question
+                msg.mention_question,
+                msg.question_id
             )
             self.text_seq[msg.group_id-1] = msg.seq
 
@@ -213,7 +214,8 @@ class PersonNode(Node):
                                directed_id: int, 
                                relationship_ticked: bool, 
                                relationship_tick: int, 
-                               mention_question: bool
+                               mention_question: bool,
+                               question_id: int
                                ):
         """
         Publish text to the person_text_result topic.
@@ -235,6 +237,7 @@ class PersonNode(Node):
         msg.relationship_ticked = relationship_ticked
         msg.relationship_tick = relationship_tick
         msg.mention_question = mention_question
+        msg.question_id = question_id
         for i in range(5):
             self.person_text_result_publisher.publish(msg)
 

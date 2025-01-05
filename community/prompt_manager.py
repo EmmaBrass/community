@@ -143,12 +143,14 @@ class PromptManager():
         # Also need to deal with how this will work with history rewinds
         # TODO responses could also be modulated by their relationship with another person!
 
+
         # Get current question and question category
-        question_person = self.people_data.get(question_id)
-        if not question_person:
-            raise LookupError(f"person not found! {question_id}")
-        current_question = question_person.get('question')
-        question_category = question_person.get('question_category')
+        if question_id != 0:
+            question_person = self.people_data.get(question_id)
+            if not question_person:
+                raise LookupError(f"person not found! {question_id}")
+            current_question = question_person.get('question')
+            question_category = question_person.get('question_category')
 
         # Get the response details for the question category, for this person who is speaking
         person = self.people_data.get(self.person_id)
@@ -168,7 +170,10 @@ class PromptManager():
 
             if question_id == self.person_id: # if the question being discussed matches the person speaking
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
-                    prompt_details = f"Announce that your question is: {current_question} "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} Politely ask everyone to talk about this instead of whatever else they were talking about."
+                    elif MessageType(message_type).name == 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
                 else:
                     prompt_details = "You are desparate for answers, but alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
@@ -190,7 +195,10 @@ class PromptManager():
             
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
-                    prompt_details = f"Announce that your question is: {current_question} "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} You would like everyone to help you with this instead of another person's question."
+                    elif MessageType(message_type).name == 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
@@ -200,8 +208,8 @@ class PromptManager():
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
             else:
-                prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
-                {response_category_description}  The reason for this is: {response_description}. "
+                prompt_details = f"The current question being discussed is: {current_question} The question category is: {question_category}.\
+                {response_category_description} The reason for this is: {response_description}. "
                 if random.randint(0,100) < config.DATA_FACT_PERCENT:
                     prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
@@ -209,7 +217,10 @@ class PromptManager():
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
-                    prompt_details = f"Announce that your question is: {current_question} "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} People need to help you with this rather than discussing anything else."
+                    elif MessageType(message_type).name == 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
@@ -226,11 +237,14 @@ class PromptManager():
                 if random.randint(0,100) < config.DATA_FACT_PERCENT:
                     prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
-        elif question_phase == 4:
+        elif question_phase == 4: # Full anger towards everyone else.
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
-                    prompt_details = f"Announce that your question is: {current_question} "
+                    if MessageType(message_type).name != 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} This is the only thing you care about and people need to help you!"
+                    elif MessageType(message_type).name == 'ALONE':
+                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
                     if MessageType(message_type).name != 'ALONE':

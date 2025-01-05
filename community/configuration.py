@@ -46,7 +46,7 @@ INTERRUPT_PERCENT = 30
 DIRECT_PERCENT = 20
 
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just and open comment
-SWITCH_PERCENT = 15
+SWITCH_PERCENT = 50
 
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
 MAX_SPEAK_LIST_LEN = 5
@@ -62,7 +62,7 @@ MIN_QUESTION_MENTION = 6
 CHAOS_QUESTION_PHASE = 5
 
 # What % of the time to add in a fact from the internet to back up a point
-DATA_FACT_PERCENT = 50
+DATA_FACT_PERCENT = 25
 
 
 

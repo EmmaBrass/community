@@ -462,7 +462,8 @@ class GroupNode(Node):
                 'directed_id' : msg.directed_id,
                 'relationship_ticked' : msg.relationship_ticked,
                 'relationship_tick' : msg.relationship_tick,
-                'mention_question' : msg.mention_question
+                'mention_question' : msg.mention_question,
+                'question_id' : msg.question_id
             })
             self.get_logger().info('SPEAK_LIST')
             self.get_logger().info(str(self.speak_list))
@@ -599,6 +600,7 @@ class GroupNode(Node):
                     last_item = self.speak_list[-1]  # Get the last item in the list
                     last_speaker = last_item['person_id']
                     last_message_directed = last_item['directed_id']
+                    last_question_id = last_item['question_id']
                     if len(self.speak_list) > 1:
                         second_last_item = self.speak_list[-2]
                         second_last_speaker = second_last_item['person_id']
@@ -611,6 +613,7 @@ class GroupNode(Node):
                     last_item = self.spoken_list[-1]  # Get the last item in the list
                     last_speaker = last_item['person_id']
                     last_message_directed = last_item['directed_id']
+                    last_question_id = last_item['question_id']
                     if len(self.spoken_list) > 1:
                         second_last_item = self.spoken_list[-2]
                         second_last_speaker = second_last_item['person_id']
@@ -620,6 +623,7 @@ class GroupNode(Node):
                     last_speaker = 0
                     last_message_directed = 0
                     second_last_speaker = 0
+                    last_question_id = 0
                 self.get_logger().info("LAST SPEAKER")
                 self.get_logger().info(str(last_speaker))
                 self.get_logger().info("2nd LAST SPEAKER")
@@ -630,6 +634,7 @@ class GroupNode(Node):
                     self.group_members, 
                     last_speaker, 
                     second_last_speaker, 
+                    last_question_id,
                     last_message_directed
                 )
                 if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
