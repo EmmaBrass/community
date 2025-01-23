@@ -25,7 +25,7 @@ import os, yaml, time, random, wave
 import numpy as np
 
 from community.group_convo_manager import GroupConvoManager
-from community.question_phase import GetQuestionPhase
+from community.helper_functions import HelperFunctions
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -104,7 +104,7 @@ class GroupNode(Node):
         self.group_convo_manager = GroupConvoManager()
 
         # Initialise question phase checker
-        self.question_phase = GetQuestionPhase()
+        self.helper = HelperFunctions()
 
         # Get the path to the `people.yaml` file
         package_share_dir = get_package_share_directory('community')
@@ -504,7 +504,7 @@ class GroupNode(Node):
 
         # Text requests will be sent directly from the person nodes 
         # rather than here, if we are past the chaos question phase.
-        question_phase = self.question_phase.get_question_phase()
+        question_phase = self.helper.get_question_phase()
         if question_phase < config.CHAOS_QUESTION_PHASE and self.group_info_lock == False:
 
             if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) == 0 and self.left_member_flag == True:
@@ -513,11 +513,11 @@ class GroupNode(Node):
                 self.get_logger().info('PUBLISHING GOODBYE SPEECH')
                 # Choose a random group member.
                 speaker = random.choice(self.group_members)
-                voice_id = self.get_voice_id(speaker)
-                color = self.get_color(speaker)
+                voice_id = self.helper.get_voice_id(speaker)
+                color = self.helper.get_color(speaker)
                 # Convert text to .wav audio file bytes.
                 text = random.choice(self.goodbye_list)
-                audio_uint8 = self.text_to_speech_bytes(text, voice_id)
+                audio_uint8 = self.text_to_speech_bytes(text, voice_id, self.group_id)
                 if speaker in self.group_members:
                     msg = PiSpeechRequest()
                     msg.seq = self.speech_seq
@@ -538,9 +538,9 @@ class GroupNode(Node):
                     for i in range(5):
                         self.pi_speech_request_publisher.publish(msg)
                     self.last_speech_completed = False
-                    self.creating_speech_request = False
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
+                self.creating_speech_request = False
 
             # Check if new speech required (if last person's speech has been spoken).
             # Send a request to the Pi to SPEAK.
@@ -550,9 +550,9 @@ class GroupNode(Node):
                 # Use the FIRST item in speak_list.
                 text_dict = self.speak_list.pop(0)
                 # Convert text to .wav audio file bytes.
-                voice_id = self.get_voice_id(text_dict['person_id'])
-                color = self.get_color(text_dict['person_id'])
-                audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id)
+                voice_id = self.helper.get_voice_id(text_dict['person_id'])
+                color = self.helper.get_color(text_dict['person_id'])
+                audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
                 # Move it to the spoken list.
                 text_dict['completed'] = False
                 self.spoken_list.append(text_dict)
@@ -578,9 +578,9 @@ class GroupNode(Node):
                     for i in range(5):
                         self.pi_speech_request_publisher.publish(msg)
                     self.last_speech_completed = False
-                    self.creating_speech_request = False
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
+                self.creating_speech_request = False
 
 
             if self.last_text_recieved == True and self.creating_text_request == False and len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
@@ -588,7 +588,7 @@ class GroupNode(Node):
                 self.get_logger().info("REQUESTING TEXT")
                 if self.new_member_flag:
                     # Sleep for a few secs to ensure the person node has registered new group_id
-                    self.get_logger().info("Processing new member, sleeping for 3 seconds.")
+                    self.get_logger().info("Processing new member, sleeping for 2 sec.")
                     time.sleep(2)
                     self.new_member_flag = False
                     self.creating_text_request = False
@@ -628,8 +628,6 @@ class GroupNode(Node):
                 self.get_logger().info(str(last_speaker))
                 self.get_logger().info("2nd LAST SPEAKER")
                 self.get_logger().info(str(second_last_speaker))
-                # TODO check spoken list; if message_type = SWITCH or ALONE, has this person discussed their Q ever before?
-
                 person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
                     self.group_members, 
                     last_speaker, 
@@ -674,9 +672,13 @@ class GroupNode(Node):
                         mention_question
                     )
 
-    def text_to_speech_bytes(self, text, voice_id):
+    def text_to_speech_bytes(self, text, voice_id, id):
         """
         Convert some speech into .wav bytes for sending.
+
+        :param text: The text to convert.
+        :param voice_id: The voice_id to send.
+        :param id: The group id, or the person id, as a unique identifier for the file name.
         """
         try:
             voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
@@ -684,7 +686,7 @@ class GroupNode(Node):
             voice = PiperVoice.load(model)
             
             # Define output .wav file
-            wav_file = f'audio_output_group_{self.group_id}.wav'
+            wav_file = f'audio_output_group_{id}.wav'
             self.get_logger().info("MADE AUDIO OUTPUT FILE")
             
             # Open wave file in binary write mode
@@ -715,38 +717,19 @@ class GroupNode(Node):
 
         if len(self.spoken_list) > 0:
             reversed_spoken_list = self.spoken_list[::-1]
-            len_from_end = 0
+            len_from_end = -1
             for num, item in enumerate(reversed_spoken_list):
                 # Find the last item where this person mentioned their question
                 if item['mention_question'] == True and item['person_id'] == person_id:
                     len_from_end = num
                     break
-            if len_from_end > config.MIN_QUESTION_MENTION:
+            if len_from_end > config.MIN_QUESTION_MENTION or len_from_end == -1: # If -1, then their question has not been mentioned at all in spoken list for this group.
                 mention_question = True
         if self.first_question == True:
             mention_question = True
             self.first_question = False
  
         return mention_question
-        
-
-    def get_voice_id(self, person_id):
-        # Now initialize the person object using person attributes from config yaml file
-        person_data = self.people_data.get(person_id, {})
-        voice_id = person_data.get('voice_id', None)
-        self.get_logger().info(f"Voice ID is: {voice_id}")
-        if voice_id == None:
-            self.get_logger().info("Error! Voice_id not found for this person_id")
-        return str(voice_id)
-    
-    def get_color(self, person_id):
-        # Now initialize the person object using person attributes from config yaml file
-        person_data = self.people_data.get(person_id, {})
-        color = person_data.get('color', None)
-        self.get_logger().info(f"Color is: {color}")
-        if color == None:
-            self.get_logger().info("Error! Color not found for this person_id")
-        return color
             
 
 def main(args=None):

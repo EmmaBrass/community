@@ -17,6 +17,7 @@ from community_interfaces.msg import (
 )
 import community.configuration as config
 from community.message_type import MessageType
+from community.helper_functions import HelperFunctions
 
 from piper.voice import PiperVoice
 import random, os, yaml, wave
@@ -30,9 +31,14 @@ class GroupAssignmentNode(Node):
     def __init__(self):
         super().__init__('group_assignment_node')
 
+        self.restart = True # If the system has just been started up, this enables reset of seq ids on RPis.
+
         self.group_info_seq = 0
 
         self.hello_seq = 1
+
+        # Helper functions
+        self.helper = HelperFunctions()
 
         # Initialize the assignments list for what person is at what pi
         # Very similar to GROUP_PI_ASSIGNMENTS but also gives a person_id for each pi_id
@@ -46,14 +52,10 @@ class GroupAssignmentNode(Node):
             self.pi_person_assignments.append({'group_id': group_id, 'members': members})
         self.get_logger().info(str(self.pi_person_assignments))
 
-        # Get the path to the `people.yaml` file
-        package_share_dir = get_package_share_directory('community')
-        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
-        self.people_data = self.load_people(people_path)
 
         # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
         self.hello_list = ['Hello there! What a nice day it is.', 
-                           'Hello good people of the world.', 
+                           'Hellooooo good people of the world.', 
                            'Hey, glad to be here with you.', 
                            'Hey, it\'s nice to be here, I wouldn\'t want to be anywhere else.', 
                            'Hello there. It\'s great to be here with you!', 
@@ -78,11 +80,6 @@ class GroupAssignmentNode(Node):
         # Prevent unused variable warnings
         self.pi_person_updates_subscription
 
-    def load_people(self, file_path): # TODO move this function and some others into a helper class... these are reused a lot
-        """ Load people data from the YAML file. """
-        with open(file_path, 'r') as file:
-            data = yaml.safe_load(file)
-        return data['people']
 
     def update_pi_person_assignments(self, pi_id: int, new_person_id:int):
         """
@@ -104,11 +101,11 @@ class GroupAssignmentNode(Node):
                         self.get_logger().info("new_person_id")
                         self.get_logger().info(str(new_person_id))
                         if new_person_id != 0:
-                            voice_id = self.get_voice_id(new_person_id)
-                            color = self.get_color(new_person_id)
+                            voice_id = self.helper.get_voice_id(new_person_id)
+                            color = self.helper.get_color(new_person_id)
                             # Convert text to .wav audio file bytes.
                             text = random.choice(self.hello_list)
-                            audio_uint8 = self.text_to_speech_bytes(text, voice_id)
+                            audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
                             # Publish a PiSpeechRequest so that the person can say hello
                             self.pi_speech_request_pub(new_person_id, pi_id, color, current_group_id, voice_id, text, audio_uint8)
                     return True  # Return True if an update took place
@@ -134,57 +131,6 @@ class GroupAssignmentNode(Node):
         for i in range(5):
             self.pi_speech_request_publisher.publish(msg)
         self.hello_seq += 1
-    
-    def get_voice_id(self, person_id):
-        # Now initialize the person object using person attributes from config yaml file
-        person_data = self.people_data.get(person_id, {})
-        voice_id = person_data.get('voice_id', None)
-        self.get_logger().info(f"Voice ID is: {voice_id}")
-        if voice_id == None:
-            self.get_logger().info("Error! Voice_id not found for this person_id")
-        return str(voice_id)
-    
-    def get_color(self, person_id):
-        # Now initialize the person object using person attributes from config yaml file
-        person_data = self.people_data.get(person_id, {})
-        color = person_data.get('color', None)
-        self.get_logger().info(f"Color is: {color}")
-        if color == None:
-            self.get_logger().info("Error! Color not found for this person_id")
-        return color
-    
-    def text_to_speech_bytes(self, text, voice_id):
-        """
-        Convert some speech into .wav bytes for sending.
-        """
-        try:
-            voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
-            model = voicedir + voice_id
-            voice = PiperVoice.load(model)
-            
-            # Define output .wav file
-            wav_file = f'audio_output_hello.wav'
-            self.get_logger().info("MADE 'HELLO' AUDIO OUTPUT FILE")
-            
-            # Open wave file in binary write mode
-            with wave.open(wav_file, 'wb') as wav:
-                # Set wave parameters (sample width, channels, frame rate)
-                wav.setnchannels(1)  # Mono audio
-                wav.setsampwidth(2)  # Typically 16-bit audio
-                wav.setframerate(22050)  # Set frame rate to 22.05 kHz
-                
-                # Synthesize text and write audio frames
-                voice.synthesize(text, wav)
-
-            # Convert audio to bytes
-            with open(wav_file, 'rb') as f:
-                audio_data = f.read()
-                audio_uint8 = list(audio_data)
-                
-            return audio_uint8
-
-        except Exception as e:
-            self.get_logger().error(f"Error in text_to_speech_bytes: {e}")
 
     def pi_person_updates_callback(self, msg):
         """
@@ -207,6 +153,11 @@ class GroupAssignmentNode(Node):
             msg.num_pis = len(group['members'])
             msg.person_ids = [member['person_id'] for member in group['members']]
             msg.pi_ids = [member['pi_id'] for member in group['members']]
+            if self.restart == True: # If the system has just been started up, this enables reset of seq ids on RPis.
+                msg.restart = True
+                self.restart = False
+            else:
+                msg.restart = False
             for i in range(5):
                 self.group_info_publisher.publish(msg)
             self.group_info_seq += 1

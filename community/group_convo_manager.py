@@ -1,6 +1,6 @@
 import community.configuration as config
 from community.message_type import MessageType
-from community.question_phase import GetQuestionPhase
+from community.helper_functions import HelperFunctions
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -10,26 +10,15 @@ class GroupConvoManager():
     """
     Manages who speaks next in a conversation within a group.
     """
-    # TODO add hello and goodbye (joining and leaving) message types into this class
-    # TODO 
+
     # Will need to set it so that if that group member leaves then we move away from their question
-    # TODO here use an events file to register big changes.  Or to get all people to switch from one question to the next question.
-    # For question/speech switch, info from there gets sent through and then prompt_manager actually implements it by telling the LLM about the switch.
 
     def __init__(self):
         # Keep track of how long a convo has been back and forth between two people
         self.back_and_forth_counter = 0
-
-        # Get the path to the `events.yaml` file
-        package_share_dir = get_package_share_directory('community')
-        events_path = os.path.join(package_share_dir, 'config_files', 'events.yaml')
-
-        with open(events_path, 'r') as file:
-            events_yaml = yaml.safe_load(file)
-        self.events_data = events_yaml['events']
         
-        # Question phase object for checking current question phase
-        self.question_phase = GetQuestionPhase()
+        # Helper functions
+        self.helper = HelperFunctions()
 
         # Keep track of which events this group has already discussed
         self.discussed_event_ids = []
@@ -55,7 +44,7 @@ class GroupConvoManager():
             time_now = time.time()
             elapsed_seconds = time_now - self.initialise_time
             # Check if the current time is past the event time
-            for event_id, event in self.events_data.items():
+            for event_id, event in self.helper.events_data.items():
                 timestamp = event['timestamp']
                 timestamp_seconds = self.convert_to_seconds(timestamp)
                 if elapsed_seconds > timestamp_seconds and elapsed_seconds < (timestamp_seconds + config.MAX_EVENT_DISCUSS_WAIT):
@@ -94,7 +83,7 @@ class GroupConvoManager():
         # By default, question_id for next speech is the same as the last one
         question_id = last_question_id
 
-        question_phase = self.question_phase.get_question_phase() #TODO this will AFFECT the message type 
+        question_phase = self.helper.get_question_phase() #TODO this will AFFECT the message type 
         # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 5 onwards.
 
         if self.first_question_flag == True:

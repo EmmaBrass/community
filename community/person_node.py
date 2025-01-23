@@ -19,7 +19,7 @@ from community_interfaces.msg import (
 import community.configuration as config
 from community.person_llm import PersonLLM
 from community.prompt_manager import PromptManager
-from community.question_phase import GetQuestionPhase
+from community.helper_functions import HelperFunctions
 
 import cv2, math, time, logging, pickle
 import numpy as np
@@ -38,13 +38,10 @@ class PersonNode(Node):
         self.declare_parameter('person_id', 0)
         self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
 
-        # Get the path to the `people.yaml` file
-        package_share_dir = get_package_share_directory('community')
-        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
-        self.people_data = self.load_people(people_path)
+        self.helper = HelperFunctions()
 
         # Now initialize the person object using person attributes from config yaml file
-        person_data = self.people_data.get(self.person_id, {})
+        person_data = self.helper.people_data.get(self.person_id, {})
         # Get voice id
         self.voice_id = str(person_data.get('voice_id', None))
         self.get_logger().info(f"Voice ID is: {self.voice_id}")
@@ -90,9 +87,6 @@ class PersonNode(Node):
 
         # Initialise prompt manager
         self.prompt_manager = PromptManager(self.person_id)
-
-        # Initialise question phase checker
-        self.question_phase = GetQuestionPhase()
 
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
@@ -321,16 +315,20 @@ class PersonNode(Node):
         """
         # Text requests will be sent directly from here rather than the group nodes,
         # IF we are past the chaos question phase only.
-        question_phase = self.question_phase.get_question_phase()
+        question_phase = self.helper.get_question_phase()
         if question_phase >= config.CHAOS_QUESTION_PHASE:
+        # TODO right now, a given person will send requests to the pi they USED to be on once they are removed and before assigned to a new pi.
+        # This means that a pi may be getting speech requests from several places.
+        # This means that we are not going to get back last_chaos_completed messages in any neat way...
 
             if self.last_chaos_completed == True and self.creating_speech_request == False and len(self.speak_list) != 0:
                 self.creating_speech_request = True
                 self.get_logger().info('PUBLISHING SPEECH')
-                # Use the FIRST item in speak_list
-                text_dict = self.speak_list.pop(0)
-                # Double check the person is still in the group
-                if text_dict['person_id'] in self.group_members:
+                if question_phase == config.CHAOS_QUESTION_PHASE:
+                    # Use the FIRST item in speak_list
+                    text_dict = self.speak_list.pop(0)
+                    # Convert text to .wav audio file bytes.
+                    audio_uint8 = self.helper.text_to_speech_bytes(text_dict['text'], self.voice_id, self.person_id)
                     msg = PiSpeechRequest()
                     msg.seq = self.chaos_seq
                     msg.voice_id = self.voice_id
@@ -347,12 +345,31 @@ class PersonNode(Node):
                     msg.relationship_ticked = text_dict['relationship_ticked']
                     msg.relationship_tick = text_dict['relationship_tick']
                     msg.chaos_phase = True
+                    msg.audio_data = audio_uint8
+                elif question_phase == config.STATIC_QUESTION_PHASE:
+                    msg = PiSpeechRequest()
+                    msg.seq = self.chaos_seq
+                    msg.voice_id = self.voice_id
+                    msg.person_id = self.person_id
+                    msg.pi_id = self.pi_id
+                    msg.color = self.color
+                    msg.group_id = self.group_id
+                    msg.people_in_group = self.group_members
+                    msg.message_type = MessageType.OPEN.value
+                    msg.text = "Static"
+                    msg.gpt_message_id = 0
+                    msg.directed_id = 0
+                    msg.relationship_ticked = False
+                    msg.relationship_tick = 0
+                    msg.chaos_phase = True
+                    msg.audio_data = audio_uint8
+
                     for i in range(5):
                         self.pi_speech_request_publisher.publish(msg)
                     self.last_chaos_completed = False
-                    self.creating_speech_request = False
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
+                self.creating_speech_request = False
 
             if len(self.group_members) > 0 and len(self.speak_list) < config.MAX_SPEAK_LIST_LEN:
                 prompt_details = self.prompt_manager.get_prompt_details(
@@ -388,10 +405,11 @@ class PersonNode(Node):
                     'message_type' : MessageType.OPEN.value,
                     'text' : text,
                     'gpt_message_id' : gpt_message_id,
-                    'directed_id' : msg.directed_id,
-                    'relationship_ticked' : msg.relationship_ticked,
-                    'relationship_tick' : msg.relationship_tick,
-                    'mention_question' : msg.mention_question
+                    'directed_id' : 0,
+                    'relationship_ticked' : False,
+                    'relationship_tick' : 0,
+                    'mention_question' : False,
+                    'question_id' : self.person_id
                 })
 
 

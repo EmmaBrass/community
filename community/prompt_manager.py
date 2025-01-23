@@ -3,6 +3,8 @@ import yaml, os, random
 from ament_index_python.packages import get_package_share_directory
 import community.configuration as config
 
+from community.helper_functions import HelperFunctions
+
 # Question Categories: 
 # Beauty
 # Food
@@ -65,24 +67,11 @@ class PromptManager():
             }
         }
 
-
-        # Get the path to the 'events.yaml' and the 'people.yml' file
-        package_share_dir = get_package_share_directory('community')
-        events_path = os.path.join(package_share_dir, 'config_files', 'events.yaml')
-        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
-
-        self.people_data = self.load_people(people_path)
-        self.events_data = self.load_events(events_path)
-
-    def load_events(self, file_path):
-        """ Load events data from the YAML file. """
-        with open(file_path, 'r') as file:
-            data = yaml.safe_load(file)
-        return data['events']
+        self.helper = HelperFunctions()
 
     def get_event_description_by_id(self, event_id):
         """ Function to get an event's description by ID. """
-        event = self.events_data.get(event_id)  # Ensure ID is treated as a string
+        event = self.helper.events_data.get(event_id)  # Ensure ID is treated as a string
         if event:
             return event.get('description')
         else:
@@ -90,21 +79,15 @@ class PromptManager():
     
     def get_event_urgency_by_id(self, event_id):
         """ Function to get an event's urgency by ID. """
-        event = self.events_data.get(event_id)  # Ensure ID is treated as a string
+        event = self.helper.events_data.get(event_id)  # Ensure ID is treated as a string
         if event:
             return event.get('urgency')
         else:
             raise LookupError("event not found!")
 
-    def load_people(self, file_path):
-        """ Load people data from the YAML file. """
-        with open(file_path, 'r') as file:
-            data = yaml.safe_load(file)
-        return data['people']
-    
     def get_name_by_id(self, person_id):
         """ Function to get a person's name by ID. """
-        person = self.people_data.get(person_id)  # Ensure ID is a string for key lookup
+        person = self.helper.people_data.get(person_id)  # Ensure ID is a string for key lookup
         if person:
             return person.get('name')
         else:
@@ -146,14 +129,14 @@ class PromptManager():
 
         # Get current question and question category
         if question_id != 0:
-            question_person = self.people_data.get(question_id)
+            question_person = self.helper.people_data.get(question_id)
             if not question_person:
                 raise LookupError(f"person not found! {question_id}")
             current_question = question_person.get('question')
             question_category = question_person.get('question_category')
 
         # Get the response details for the question category, for this person who is speaking
-        person = self.people_data.get(self.person_id)
+        person = self.helper.people_data.get(self.person_id)
         if not person:
             raise LookupError(f"person not found! {self.person_id}")
         responses = person.get('question_responses', {})

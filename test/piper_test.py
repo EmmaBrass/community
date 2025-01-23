@@ -6,8 +6,8 @@ voicedir = os.path.expanduser('~/Documents/piper/') #Where onnx model files are 
 print("HERE")
 model = voicedir+"en_GB-jenny_dioco-medium.onnx"
 voice = PiperVoice.load(model)
-wav_file = wave.open('connected.wav', 'w')
-text = "Hello, I'm here."
+wav_file = wave.open('hello.wav', 'w')
+text = "hello world."
 audio = voice.synthesize(text,wav_file)
 
-os.system('aplay connected.wav')
+os.system('aplay hello.wav')

@@ -45,8 +45,8 @@ INTERRUPT_PERCENT = 30
 # How often (as a percentage of the time) a person directs a message at someone else precise, rather than just an open comment
 DIRECT_PERCENT = 20
 
-# How often (as a percentage of the time) a person switches to asking their own question, rather than just and open comment
-SWITCH_PERCENT = 50
+# How often (as a percentage of the time) a person switches to asking their own question, rather than just an open comment
+SWITCH_PERCENT = 38
 
 # How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
 MAX_SPEAK_LIST_LEN = 5
@@ -56,10 +56,13 @@ MAX_SPEAK_LIST_LEN = 5
 MAX_EVENT_DISCUSS_WAIT = 60
 
 # How many instances of speech must have passed within a group, before an individual can mention their question again
-MIN_QUESTION_MENTION = 6
+MIN_QUESTION_MENTION = 5
 
 # Which question phase everyone starts to talk over one another
 CHAOS_QUESTION_PHASE = 5
+
+# Which question phase is electronic static (over one another)
+STATIC_QUESTION_PHASE = 6
 
 # What % of the time to add in a fact from the internet to back up a point
 DATA_FACT_PERCENT = 25
