@@ -24,6 +24,9 @@ from piper.voice import PiperVoice
 import os, yaml, time, random, wave
 import numpy as np
 
+from pydub import AudioSegment
+from pydub.generators import WhiteNoise, Sine
+
 from community.group_convo_manager import GroupConvoManager
 from community.helper_functions import HelperFunctions
 
@@ -40,13 +43,13 @@ class GroupNode(Node):
         self.declare_parameter('group_id', 0)
         self.group_id = self.get_parameter('group_id').get_parameter_value().integer_value
 
-        # The max number of people in this group
-        # TODO delete? num_members not used currently
+        # The number of pis in this group
         self.num_members = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
         # The people currently in this group (id numbers) (this changes)
         self.group_members = []
         # Simple pi-person dict updated from group_info: used for goodbye text
-        self.person_pi_dict = None
+        self.person_pi_dict = None # for looking up pi from person id
+        self.pi_person_dict = None # for looking up person from pi id
         # Flag for if a new member has been added
         self.new_member_flag = False
         # Flag for if a member has left
@@ -72,12 +75,17 @@ class GroupNode(Node):
         # Simple lock to stop timer_callback from running when we are in group_info_callback
         self.group_info_lock = False
 
+        # Arrays for chaos phase:
+        self.group_pis = config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids') # The pis listed in a constant order - use w/ self.person_pi_dict for tracking completed speech.
+        self.chaos_last_speech_completed_dict = {pi_id: True for pi_id in self.group_pis}
+        self.chaos_last_text_received_dict = {pi_id: True for pi_id in self.group_pis}
+        self.chaos_text_seq_dict = {pi_id: 0 for pi_id in self.group_pis}
+        self.chaos_speech_seq_dict = {pi_id: 0 for pi_id in self.group_pis}
+        self.chaos_speak_list = {pi_id: [] for pi_id in self.group_pis}
 
+        # For logging
         self.prev_last_speech_completed = True
         self.prev_last_text_recieved = True
-
-        # Current member whose question is being discussed
-        self.question_member = 0
 
         # Tick number for this group for the relationship manager, for latest text in the 'to speak' list
         self.relationships_tick_to_speak = 0
@@ -106,10 +114,9 @@ class GroupNode(Node):
         # Initialise question phase checker
         self.helper = HelperFunctions()
 
-        # Get the path to the `people.yaml` file
-        package_share_dir = get_package_share_directory('community')
-        people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
-        self.people_data = self.load_people(people_path)
+        # Place for static sounds files
+        self.static_output_directory = "./static_sounds"
+        os.makedirs(self.static_output_directory, exist_ok=True)
 
         # Initialise publishers
         self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
@@ -171,9 +178,10 @@ class GroupNode(Node):
         if msg.seq > self.group_info_seq:
             self.get_logger().debug('In group_info_callback')
             if msg.group_id == self.group_id:
-                self.group_info_lock = True # TODO being used???
+                self.group_info_lock = True
                 # Update raw pi-person matching arrays (used for goodbye text)
                 self.person_pi_dict = dict(zip(msg.person_ids, msg.pi_ids))
+                self.pi_person_dict = {pi_id: person_id for person_id, pi_id in self.person_pi_dict.items()}
                 # Check for people who have left, if there were >0 people in the group previously
                 if len(self.group_members) != 0:
                     for person_id in self.group_members:
@@ -181,12 +189,14 @@ class GroupNode(Node):
                             self.get_logger().info('Someone left the group')
                             self.group_members.remove(person_id)
                             self.get_logger().info(f'Updated group_members: {self.group_members}')
-                            # Rewind speak list as group makeup has changed
-                            self.rewind_speak(False, person_id)
-                            self.last_text_recieved = True
-                            # Add one to text_seq if the speak_list has been reset so that 
-                            # text results from requests sent before the reset are ignored
-                            self.text_seq += 1
+                            # Rewind speak list as group makeup has changed, if not in chaos phase
+                            question_phase = self.helper.get_question_phase()
+                            if question_phase < config.CHAOS_QUESTION_PHASE:
+                                self.rewind_speak(False, person_id)
+                                self.last_text_recieved = True
+                                # Add one to text_seq if the speak_list has been reset so that 
+                                # text results from requests sent before the reset are ignored
+                                self.text_seq += 1
                 # Check for new person added, if there >0 members of the group in the message
                 if np.count_nonzero(msg.person_ids) != 0:
                     for person_id in msg.person_ids:
@@ -197,13 +207,15 @@ class GroupNode(Node):
                             self.get_logger().info('Someone joined the group')
                             self.group_members.append(person_id)
                             self.get_logger().info(f'Updated group_members: {self.group_members}')
-                            # Rewind speak list as group makeup has changed
-                            self.rewind_speak(True, person_id)
-                            self.last_text_recieved = True
-                            self.get_logger().info('Just set last_text_recieved to true')
-                            # Add one to text_seq if the speak_list has been reset so that 
-                            # text results from requests sent before the reset are ignored
-                            self.text_seq += 1
+                            # Rewind speak list as group makeup has changed, if not in chaos phase
+                            question_phase = self.helper.get_question_phase()
+                            if question_phase < config.CHAOS_QUESTION_PHASE:
+                                self.rewind_speak(True, person_id)
+                                self.last_text_recieved = True
+                                self.get_logger().info('Just set last_text_recieved to true')
+                                # Add one to text_seq if the speak_list has been reset so that 
+                                # text results from requests sent before the reset are ignored
+                                self.text_seq += 1
                 self.group_info_lock = False
                             
             self.group_info_seq = msg.seq
@@ -225,7 +237,7 @@ class GroupNode(Node):
             self.get_logger().info('Removing unspoken messages in speak list.')
 
             if joined == True:
-                # If someone has joined, rewind all but last messages in self.speak_list
+                # If someone has joined, rewind all but last message in self.speak_list
                 to_delete = self.speak_list[1:]
                 self.speak_list = self.speak_list[:1]
             else:
@@ -286,6 +298,7 @@ class GroupNode(Node):
 
     def text_request_no_relationship(
             self, 
+            seq,
             person_id, 
             directed_id, 
             event_id, 
@@ -297,7 +310,7 @@ class GroupNode(Node):
         self.get_logger().info("In text_request_no_relationship")
 
         msg = PersonTextRequest()
-        msg.seq = self.text_seq
+        msg.seq = seq
         msg.group_id = self.group_id
         msg.relationship_ticked = False
         msg.relationship_tick = 0
@@ -319,6 +332,7 @@ class GroupNode(Node):
 
     def text_request_with_relationship(
             self, 
+            seq,
             person_id, 
             directed_id, 
             event_id, 
@@ -354,6 +368,7 @@ class GroupNode(Node):
         future = self.tick_get_relationship_client.call_async(request)
         # rclpy.spin_until_future_complete(self, future)
         future.add_done_callback(lambda future: self.handle_tick_get_relationship_response(future, 
+                                                                                           seq,
                                                                                            event_id, 
                                                                                            person_id, 
                                                                                            message_type, 
@@ -367,6 +382,7 @@ class GroupNode(Node):
     def handle_tick_get_relationship_response(
             self, 
             future, 
+            seq,
             event_id, 
             person_id, 
             message_type, 
@@ -383,7 +399,7 @@ class GroupNode(Node):
                 if future.result() is not None:
                     response = future.result()
                     msg = PersonTextRequest()
-                    msg.seq = self.text_seq
+                    msg.seq = seq
                     msg.group_id = self.group_id
                     msg.relationship_ticked = True
                     msg.relationship_tick = response.tick_id
@@ -451,24 +467,44 @@ class GroupNode(Node):
         """
         if msg.seq == self.text_seq and msg.group_id == self.group_id:
             self.get_logger().info('In person_text_result_callback')
-            self.speak_list.append({
-                'person_id' : msg.person_id,
-                'pi_id' : msg.pi_id,
-                'group_id' : msg.group_id,
-                'people_in_group': msg.people_in_group,
-                'message_type' : msg.message_type,
-                'text' : msg.text,
-                'gpt_message_id' : msg.gpt_message_id,
-                'directed_id' : msg.directed_id,
-                'relationship_ticked' : msg.relationship_ticked,
-                'relationship_tick' : msg.relationship_tick,
-                'mention_question' : msg.mention_question,
-                'question_id' : msg.question_id
-            })
-            self.get_logger().info('SPEAK_LIST')
-            self.get_logger().info(str(self.speak_list))
-            self.last_text_recieved = True
-            self.text_seq += 1
+            if self.helper.get_question_phase() < config.CHAOS_QUESTION_PHASE:
+                self.speak_list.append({
+                    'person_id' : msg.person_id,
+                    'pi_id' : msg.pi_id,
+                    'group_id' : msg.group_id,
+                    'people_in_group': msg.people_in_group,
+                    'message_type' : msg.message_type,
+                    'text' : msg.text,
+                    'gpt_message_id' : msg.gpt_message_id,
+                    'directed_id' : msg.directed_id,
+                    'relationship_ticked' : msg.relationship_ticked,
+                    'relationship_tick' : msg.relationship_tick,
+                    'mention_question' : msg.mention_question,
+                    'question_id' : msg.question_id
+                })
+                self.get_logger().info('SPEAK LIST')
+                self.get_logger().info(str(self.speak_list))
+                self.last_text_recieved = True
+                self.text_seq += 1
+            else:
+                self.chaos_speak_list[msg.pi].append({
+                    'person_id' : msg.person_id,
+                    'pi_id' : msg.pi_id,
+                    'group_id' : msg.group_id,
+                    'people_in_group': msg.people_in_group,
+                    'message_type' : msg.message_type,
+                    'text' : msg.text,
+                    'gpt_message_id' : msg.gpt_message_id,
+                    'directed_id' : msg.directed_id,
+                    'relationship_ticked' : msg.relationship_ticked,
+                    'relationship_tick' : msg.relationship_tick,
+                    'mention_question' : msg.mention_question,
+                    'question_id' : msg.question_id
+                })
+                self.get_logger().info('CHAOS SPEAK LIST')
+                self.get_logger().info(str(self.chaos_speak_list[msg.pi]))
+                self.chaos_last_text_received_dict[msg.pi] = True
+                self.chaos_text_seq_dict[msg.pi] += 1
 
     def pi_speech_complete_callback(self, msg):
         """
@@ -476,16 +512,20 @@ class GroupNode(Node):
         """
         if msg.seq == self.speech_seq and msg.group_id == self.group_id:
             self.get_logger().info('In pi_speech_complete_callback')
-            if msg.complete == True:
-                # find item in spoken list with the same gpt_message_id
-                for item in reversed(self.spoken_list):
-                    if (item['gpt_message_id'] == msg.gpt_message_id and
-                    item['person_id'] == msg.person_id):
-                        # update 'completed' to be True
-                        item['completed'] = True
-                        break
-            self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
-            self.speech_seq += 1
+            if self.helper.get_question_phase() < config.CHAOS_QUESTION_PHASE:
+                if msg.complete == True:
+                    # find item in spoken list with the same gpt_message_id
+                    for item in reversed(self.spoken_list):
+                        if (item['gpt_message_id'] == msg.gpt_message_id and
+                        item['person_id'] == msg.person_id):
+                            # update 'completed' to be True
+                            item['completed'] = True
+                            break
+                self.last_speech_completed = True # Means that the pi acknowledged receipt, not necessarily that it was spoken out loud.
+                self.speech_seq += 1
+            else:
+                self.chaos_last_speech_completed_dict[msg.pi_id] = True
+                self.chaos_speech_seq_dict[msg.pi_id] += 1
 
     def timer_callback(self):
         """
@@ -505,6 +545,7 @@ class GroupNode(Node):
         # Text requests will be sent directly from the person nodes 
         # rather than here, if we are past the chaos question phase.
         question_phase = self.helper.get_question_phase()
+
         if question_phase < config.CHAOS_QUESTION_PHASE and self.group_info_lock == False:
 
             if self.last_speech_completed == True and self.creating_speech_request == False and len(self.speak_list) == 0 and self.left_member_flag == True:
@@ -517,7 +558,7 @@ class GroupNode(Node):
                 color = self.helper.get_color(speaker)
                 # Convert text to .wav audio file bytes.
                 text = random.choice(self.goodbye_list)
-                audio_uint8 = self.text_to_speech_bytes(text, voice_id, self.group_id)
+                audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, self.group_id)
                 if speaker in self.group_members:
                     msg = PiSpeechRequest()
                     msg.seq = self.speech_seq
@@ -552,7 +593,7 @@ class GroupNode(Node):
                 # Convert text to .wav audio file bytes.
                 voice_id = self.helper.get_voice_id(text_dict['person_id'])
                 color = self.helper.get_color(text_dict['person_id'])
-                audio_uint8 = self.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
+                audio_uint8 = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
                 # Move it to the spoken list.
                 text_dict['completed'] = False
                 self.spoken_list.append(text_dict)
@@ -652,6 +693,7 @@ class GroupNode(Node):
                 if directed_id != 0 and config.RELATIONSHIPS == True: 
                     # Relationships must be turned on in config file to go here
                     self.text_request_with_relationship(
+                        self.text_seq,
                         person_id, 
                         directed_id, 
                         event_id, 
@@ -663,6 +705,7 @@ class GroupNode(Node):
                     # If the message is going to be directed at someone, tick the relationship manager and get back relationship info
                 else:
                     self.text_request_no_relationship(
+                        self.text_seq,
                         person_id, 
                         directed_id, 
                         event_id, 
@@ -672,43 +715,87 @@ class GroupNode(Node):
                         mention_question
                     )
 
-    def text_to_speech_bytes(self, text, voice_id, id):
-        """
-        Convert some speech into .wav bytes for sending.
+        elif question_phase >= config.CHAOS_QUESTION_PHASE and self.group_info_lock == False:
 
-        :param text: The text to convert.
-        :param voice_id: The voice_id to send.
-        :param id: The group id, or the person id, as a unique identifier for the file name.
-        """
-        try:
-            voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
-            model = voicedir + voice_id
-            voice = PiperVoice.load(model)
-            
-            # Define output .wav file
-            wav_file = f'audio_output_group_{id}.wav'
-            self.get_logger().info("MADE AUDIO OUTPUT FILE")
-            
-            # Open wave file in binary write mode
-            with wave.open(wav_file, 'wb') as wav:
-                # Set wave parameters (sample width, channels, frame rate)
-                wav.setnchannels(1)  # Mono audio
-                wav.setsampwidth(2)  # Typically 16-bit audio
-                wav.setframerate(22050)  # Set frame rate to 22.05 kHz
-                
-                # Synthesize text and write audio frames
-                voice.synthesize(text, wav)
+            if question_phase == config.CHAOS_QUESTION_PHASE:
 
-            # Convert audio to bytes
-            with open(wav_file, 'rb') as f:
-                audio_data = f.read()
-                audio_uint8 = list(audio_data)
-                
-            return audio_uint8
+                # If chaos question phase: still need to request & receive text AND send audio files from speak list
+                for pi in self.group_pis:
 
-        except Exception as e:
-            self.get_logger().error(f"Error in text_to_speech: {e}")
-            
+                    # Request text
+                    if self.chaos_last_text_received_dict[pi] == True:
+                        self.chaos_last_text_received_dict[pi] = False
+                        # Get current person_id for the pi
+                        person_id = self.pi_person_dict[pi]
+                        self.text_request_no_relationship(
+                            seq = self.chaos_text_seq_dict[pi],
+                            person_id = person_id, 
+                            directed_id = 0, 
+                            event_id = 0, 
+                            message_type = MessageType.OPEN.value, 
+                            question_id = person_id, 
+                            question_phase = question_phase, 
+                            mention_question = False
+                        )
+
+                    # Request speech
+                    if self.chaos_last_speech_completed_dict[pi] == True:
+                        # Get current person_id for the pi
+                        person_id = self.pi_person_dict[pi]
+                        voice_id = self.helper.get_voice_id(person_id)
+                        color = self.helper.get_color(person_id)
+                        # Use the FIRST item in speak_list.
+                        text_dict = self.chaos_speak_list[pi].pop(0)
+                        audio_uint8 = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, person_id)
+                        # Double check the person is still in the group.
+                        if text_dict['person_id'] in self.group_members:
+                            self.chaos_last_speech_completed_dict[pi] = False
+                            msg = PiSpeechRequest()
+                            msg.seq = self.chaos_speech_seq_dict[pi]
+                            msg.voice_id = voice_id
+                            msg.person_id = text_dict['person_id']
+                            msg.pi_id = text_dict['pi_id']
+                            msg.color = color
+                            msg.group_id = text_dict['group_id']
+                            msg.people_in_group = text_dict['people_in_group']
+                            msg.message_type = text_dict['message_type']
+                            msg.text = text_dict['text']
+                            msg.gpt_message_id = text_dict['gpt_message_id']
+                            msg.directed_id = text_dict['directed_id']
+                            msg.relationship_ticked = text_dict['relationship_ticked']
+                            msg.relationship_tick = text_dict['relationship_tick']
+                            msg.chaos_phase = False
+                            msg.audio_data = audio_uint8
+                            for i in range(5):
+                                self.pi_speech_request_publisher.publish(msg)
+
+            # If static phase, need to request just random static from each.  
+            if question_phase == config.STATIC_QUESTION_PHASE:
+                for pi in self.group_pis:
+                    if self.chaos_last_speech_completed_dict[pi] == True:
+                        self.chaos_last_speech_completed_dict[pi] = False
+                        # Get current person_id for the pi
+                        person_id = self.pi_person_dict[pi]
+                        voice_id = self.helper.get_voice_id(person_id)
+                        color = self.helper.get_color(person_id)
+                        audio_uint8 = self.generate_static_sounds(output_dir=self.static_output_directory, duration=6)
+                        msg = PiSpeechRequest()
+                        msg.seq = self.chaos_speech_seq_dict[pi]
+                        msg.voice_id = voice_id
+                        msg.person_id = person_id
+                        msg.pi_id = pi
+                        msg.color = color
+                        msg.group_id = self.group_id
+                        msg.people_in_group = self.group_members
+                        msg.message_type = MessageType.OPEN.value
+                        msg.text = "Static"
+                        msg.gpt_message_id = 0
+                        msg.directed_id = 0
+                        msg.relationship_ticked = False
+                        msg.relationship_tick = 0
+                        msg.chaos_phase = True
+                        msg.audio_data = audio_uint8
+
     def check_last_question_mention(self, person_id):
         """
         Check if this person explicitly mentioned their question recently.
@@ -730,6 +817,45 @@ class GroupNode(Node):
             self.first_question = False
  
         return mention_question
+    
+    def generate_static_sounds(self, output_dir, duration):
+        """
+        Generate varied electronic static audio files with white noise and modulation.
+
+        :param output_dir: Directory to save the generated audio files.
+        :param duration: Duration of each audio file in seconds.
+
+        :returns: The audi data as a series of bytes.
+        """
+        # Generate base white noise
+        noise = WhiteNoise().to_audio_segment(duration * 1000)  # Duration in milliseconds
+
+        # Add random amplitude modulation (low-frequency sine wave)
+        mod_freq = np.random.uniform(0.1, 5)  # Modulation frequency in Hz
+        mod_depth = np.random.uniform(-15, -5)  # Modulation depth in dB
+        sine_wave = Sine(mod_freq).to_audio_segment(duration * 1000).apply_gain(mod_depth)
+        modulated_noise = noise.overlay(sine_wave)
+
+        # Apply random low-pass and high-pass filters
+        low_cutoff = np.random.uniform(500, 5000)  # Low-pass cutoff frequency
+        high_cutoff = np.random.uniform(50, 400)   # High-pass cutoff frequency
+        filtered_noise = modulated_noise.low_pass_filter(low_cutoff).high_pass_filter(high_cutoff)
+
+        # Add slight random gain for variation
+        final_noise = filtered_noise.apply_gain(np.random.uniform(-5, 10))
+
+        # Export to file
+        wav_file = f"{output_dir}/static_sound.wav"
+        final_noise.export(wav_file, format="wav")
+        print(f"Generated: {wav_file}")
+
+        # Convert audio to bytes
+        with open(wav_file, 'rb') as f:
+            audio_data = f.read()
+            audio_uint8 = list(audio_data)
+            
+        return audio_uint8
+                
             
 
 def main(args=None):

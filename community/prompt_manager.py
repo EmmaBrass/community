@@ -240,7 +240,7 @@ class PromptManager():
                 prompt_details = f"The current question being discussed is: {current_question}  You don't care and don't want to talk about it! \
                 It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
 
-        elif question_phase == 5: # Chaos, talking over one another #TODO + way to get them to talk over each other... and louder!
+        elif question_phase == 5: # Chaos, talking over one another
 
             prompt_details = f"Shout about your own question: {current_question} (alude to your question rather than stating it explicitly). \
                 You don't care about anyone else or any other question. \
@@ -257,7 +257,7 @@ class PromptManager():
 
         if MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
-            prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
+            prompt_details += f"You are interrupting a back-and-forth between two people. Say something analagous to 'sorry to interrupt...'."
 
         elif MessageType(message_type).name == 'DIRECT':
             # Get name of person the message is directed at using directed_id

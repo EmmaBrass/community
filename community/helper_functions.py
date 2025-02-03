@@ -83,18 +83,18 @@ class HelperFunctions():
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.people_data.get(person_id, {})
         voice_id = person_data.get('voice_id', None)
-        self.get_logger().info(f"Voice ID is: {voice_id}")
+        print(f"Voice ID is: {voice_id}")
         if voice_id == None:
-            self.get_logger().info("Error! Voice_id not found for this person_id")
+            print("Error! Voice_id not found for this person_id")
         return str(voice_id)
     
     def get_color(self, person_id):
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.people_data.get(person_id, {})
         color = person_data.get('color', None)
-        self.get_logger().info(f"Color is: {color}")
+        print(f"Color is: {color}")
         if color == None:
-            self.get_logger().info("Error! Color not found for this person_id")
+            print("Error! Color not found for this person_id")
         return color
 
     # Function to convert hours, minutes, and seconds to total seconds
