@@ -4,25 +4,20 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
-from std_msgs.msg import Int16MultiArray
 
-from community.message_type import MessageType
-from community_interfaces.msg import (
-    PiSpeechRequest,
-    PersonTextRequest,
-    PersonTextResult,
-    GroupInfo,
-    DeleteGptMessageId
+from community_interfaces.srv import (
+    LlmTextRequest,
+    LlmUpdateRequest,
+    LlmRewindRequest
 )
 import community.configuration as config
 from community.person_llm import PersonLLM
 from community.prompt_manager import PromptManager
 from community.helper_functions import HelperFunctions
+from rclpy.executors import SingleThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
-import cv2, math, time, logging, pickle
-import numpy as np
-import yaml, os
+import yaml
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -33,11 +28,11 @@ class PersonNode(Node):
 
         super().__init__('person_node')
 
+        self.helper = HelperFunctions()
+
         # Get person_id from launch file -> long multi-digit number of RFID card
         self.declare_parameter('person_id', 0)
         self.person_id = self.get_parameter('person_id').get_parameter_value().integer_value
-
-        self.helper = HelperFunctions()
 
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.helper.people_data.get(self.person_id, {})
@@ -66,227 +61,110 @@ class PersonNode(Node):
         self.group_id = None # will change
         self.pi_id = None # will change
         self.group_members = [] # People in the group EXCLUDING this person
-        # Seq list for receiving text requests - one item for each group
-        self.text_seq = [-1]*config.NUM_GROUPS
-        # Seq for receiving group info
-        self.group_info_seq = -1
-        # Seq list for receiving speech updates - one item for each group
-        self.speech_seq = [-1]*config.NUM_GROUPS
-        # Seq for deletie message id
-        self.delete_seq = [-1]*config.NUM_GROUPS
 
         # Initialise prompt manager
         self.prompt_manager = PromptManager(self.person_id)
 
-        # Initialise publishers
-        self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
-        
-        # Initialise publishers
-        self.person_text_result_publisher = self.create_publisher(
-            PersonTextResult, 
-            'person_text_result', 
-            10
-        )
-        # Initialise subscribers
-        self.person_text_request_subscription = self.create_subscription(
-            PersonTextRequest,
-            'person_text_request', 
-            self.person_text_request_callback, 
-            10
-        )
-        self.person_text_result_subscription = self.create_subscription(
-            PersonTextResult,
-            'person_text_result', 
-            self.person_text_result_callback, 
-            10
-        )
-        self.group_info_subscription = self.create_subscription(
-            GroupInfo,
-            'group_info', 
-            self.group_info_callback, 
-            10
-        )
-        self.delete_gpt_message_id_subscription = self.create_subscription(
-            DeleteGptMessageId,
-            'delete_gpt_message_id', 
-            self.delete_gpt_message_id_callback, 
-            10
-        )
-        # Prevent unused variable warnings
-        self.person_text_request_subscription 
-        self.person_text_result_subscription
-        self.group_info_subscription 
-        self.delete_gpt_message_id_subscription
+        # Create callback group
+        callback_group = MutuallyExclusiveCallbackGroup()
 
-    def load_people(self, file_path):
-        """ Load people data from the YAML file. """
-        with open(file_path, 'r') as file:
-            data = yaml.safe_load(file)
-        return data['people']
+        # Initialise service servers
+        self.srv = self.create_service(
+            LlmTextRequest, 
+            f'llm_text_request_{self.person_id}', 
+            self.llm_text_request_callback,
+            callback_group=callback_group
+        )
+        self.srv = self.create_service(
+            LlmRewindRequest, 
+            f'llm_rewind_request_{self.person_id}', 
+            self.llm_rewind_request_callback,
+            callback_group=callback_group
+        )
+        self.srv = self.create_service(
+            LlmUpdateRequest, 
+            f'llm_update_request_{self.person_id}', 
+            self.llm_update_request_callback,
+            callback_group=callback_group
+        )
 
-    def delete_gpt_message_id_callback(self, msg):
-        """
-        Delete messages on the GPT thread including and after 
-        the message with the ID in the given ROS msg.
-        """
-        if msg.seq > self.delete_seq[msg.group_id-1] and msg.person_id == self.person_id:
-            self.person.delete_messages_from_id(msg.gpt_message_id)
-            self.get_logger().info("Successfully deleted unspoken gpt messages.")
-            self.delete_seq[msg.group_id-1] = msg.seq
-
-
-    def person_text_request_callback(self, msg):
+    def llm_text_request_callback(self, request, response):
         """
         Callback function for requesting text from the GPT for this person.
         """
-        if msg.person_id == self.person_id \
-            and msg.seq > self.text_seq[msg.group_id-1]:
-            # and msg.group_id == self.group_id \
-            self.get_logger().info('In person_text_request_callback')
-            prompt_details = self.prompt_manager.get_prompt_details(
-                msg.message_type, 
-                msg.directed_id, 
-                msg.event_id, 
-                msg.state_changed, 
-                msg.from_state, 
-                msg.to_state, 
-                msg.action, 
-                msg.transition_description,
-                msg.question_id,
-                msg.question_phase,
-                msg.mention_question
-            )
-            self.get_logger().info('////////////////////////////prompt_details')
-            self.get_logger().info(str(prompt_details))
-            # TODO a double check that the directed_to is actually in the group?
-            text, gpt_message_id = self.person.person_speaks(
-                self.person_id,
-                self.group_id,
-                self.group_members, # Members of the group EXCLUDING the person who will talk.
-                prompt_details
-            )
-            self.get_logger().info('GPT request complete')
-            self.get_logger().info(f'Text from GPT: {text}')
-            self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
-            self.person_text_result_pub(
-                msg.seq, 
-                text, 
-                msg.message_type,
-                gpt_message_id, 
-                msg.directed_id, 
-                msg.relationship_ticked, 
-                msg.relationship_tick,
-                msg.mention_question,
-                msg.question_id
-            )
-            self.text_seq[msg.group_id-1] = msg.seq
+        self.get_logger().info('In llm_text_request_callback')
+        prompt_details = self.prompt_manager.get_prompt_details(
+            request.message_type, 
+            request.directed_id, 
+            request.event_id, 
+            request.question_id,
+            request.question_phase,
+            request.mention_question
+        )
+        self.get_logger().info('Output prompt_details:')
+        self.get_logger().info(str(prompt_details))
+        text, gpt_message_id = self.person.person_speaks( # TODO get group_members from requst instead ?
+            self.person_id,
+            self.group_id,
+            self.group_members, # Members of the group EXCLUDING the person who will talk.
+            prompt_details
+        )
+        self.get_logger().info('GPT request complete')
+        self.get_logger().info(f'Text from GPT: {text}')
+        self.get_logger().info(f'Message ID from GPT: {gpt_message_id}')
+        response.text = text
+        response.gpt_message_id = gpt_message_id
+        response.completed = True
 
-    def person_text_result_pub(self, 
-                               seq: int, 
-                               text: str, 
-                               message_type: int,
-                               gpt_message_id: int, 
-                               directed_id: int, 
-                               relationship_ticked: bool, 
-                               relationship_tick: int, 
-                               mention_question: bool,
-                               question_id: int
-                               ):
+        return response
+    
+    def llm_rewind_request_callback(self, request, response):
         """
-        Publish text to the person_text_result topic.
-
-        :param seq: The seq id.
-        :param text: The text returned from the GPT.
+        Delete messages on the GPT thread including and after 
+        the message with the ID in the given ROS request.
         """
-        self.get_logger().info('In person_text_result_pub')
-        msg = PersonTextResult()
-        msg.seq = seq
-        msg.person_id = self.person_id
-        msg.pi_id = self.pi_id
-        msg.group_id = self.group_id
-        msg.people_in_group = self.group_members
-        msg.message_type = message_type
-        msg.text = text
-        msg.gpt_message_id = gpt_message_id
-        msg.directed_id = directed_id #TODO relationship tick and ticked ????
-        msg.relationship_ticked = relationship_ticked
-        msg.relationship_tick = relationship_tick
-        msg.mention_question = mention_question
-        msg.question_id = question_id
-        for i in range(5):
-            self.person_text_result_publisher.publish(msg)
+        self.get_logger().info('In llm_rewind_request_callback')
+        response.completed = self.person.delete_messages_from_id(request.gpt_message_id)
+    
+        if response.completed:
+            self.get_logger().info("Successfully deleted unspoken gpt messages.")
+        else:
+            self.get_logger().warn("Failed to delete unspoken gpt messages. Check message ID or system state.")
 
-    def group_info_callback(self, msg):
-        """
-        Callback function for receving information about group members.
-        """
-        if msg.seq > self.group_info_seq:
-            self.get_logger().debug('In group_info_callback')
-            if self.person_id in msg.person_ids:
-                # Find the others in the group from the msg
-                others_in_group = [person for person in msg.person_ids if person != self.person_id and person != 0]
-                # Get the assigned pi for this person
-                assigned_pi = msg.pi_ids[msg.person_ids.index(self.person_id)]
-
-                # Check if the person has been moved to a different pi
-                if assigned_pi != self.pi_id:
-                    self.get_logger().info('This person has been placed on a new pi.')
-                    # They have been moved
-                    # Update the pi id
-                    self.pi_id = assigned_pi
-
-                # If they are in the same group as before
-                if msg.group_id == self.group_id:
-                    # Check if a person left the group, to send to the gpt as metadata
-                    for person in self.group_members:
-                        if person not in others_in_group:
-                            self.get_logger().info('A person left the group')
-                            self.group_members.remove(person)
-                            # Tell the GPT about the member who left the group
-                            self.person.member_left_group(person)
-                    # Check for new person added, to send to the gpt as metadata
-                    for person in others_in_group:
-                        if person not in self.group_members: 
-                            self.get_logger().info('A person joined the group')
-                            self.group_members.append(person)
-                            # Tell the GPT about the new group member
-                            self.person.member_joined_group(person)
-                # If they are in a different group from before
-                elif msg.group_id != self.group_id:
-                    self.get_logger().info('This person has joined a new group.')
-                    self.group_id = msg.group_id
-                    self.group_members = others_in_group
-                    # Tell the GPT about the new group
-                    self.person.new_group(self.group_id, self.group_members)
-            self.group_info_seq = msg.seq
-
-    def person_text_result_callback(self, msg):
+        return response
+    
+    def llm_update_request_callback(self, request, response):
         """
         Looks at incoming person_text_result data and tells the GPT about it if 
         this person is in the group (but they are not the speaker).
         """
-        if (msg.person_id != self.person_id) and \
-            (self.person_id in msg.people_in_group) and \
-            (self.group_id == msg.group_id) and \
-            (msg.seq > self.speech_seq[msg.group_id-1]):
-            self.get_logger().info('In person_text_result_callback')
+        self.get_logger().info('In llm_update_request_callback')
+        if request.type == "left": # Another person left the group.
+            self.person.member_left_group(request.person_id)
+        elif request.type == "joined": # Another person joined the group.
+            self.person.member_joined_group(request.person_id)
+        elif request.type == "new": # This person has been moved to another group.
+            self.person.new_group(request.group_id, request.group_members)
+        elif request.type == "other": # Another person in the group has said something.
             self.person.other_member_text(
-                msg.person_id, 
-                msg.group_id, 
-                msg.people_in_group, # This is everyone in the group EXCLUDING the speaker
-                msg.text
-                # msg.directed_id # Who the message was directed at
+                request.person_id, 
+                request.group_id, 
+                request.group_members, # This is everyone in the group EXCLUDING the speaker
+                request.text
             )
-            self.speech_seq[msg.group_id-1] = msg.seq
+        response.completed = True
+        
+        return response
 
-
-
+    
 def main(args=None):
     rclpy.init(args=args)
 
     person_node = PersonNode()
+    # Use MultiThreadedExecutor to allow parallel execution
+    executor = SingleThreadedExecutor()
 
-    rclpy.spin(person_node)
+    rclpy.spin(person_node, executor)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically

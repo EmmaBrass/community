@@ -3,9 +3,8 @@ from ament_index_python.packages import get_package_share_directory
 
 from piper.voice import PiperVoice
 
-
-# Just a lil class for any other class that needs to keep track of the current question phase.
-# The timer starts on class initialisation (so initialise it always at start of the system).
+# Class of helper functions, for getting data from yaml config files, speech to bites, question phase etc.
+# Timer starts on object creation.
 class HelperFunctions():
 
     def __init__(self):

@@ -211,7 +211,7 @@ class PiNode(Node):
             self.playback_process.terminate()
             self.get_logger().info("Stopped playback by force.")
             self.playback_process = None
-        self.stop_playback = False #True
+        self.stop_playback = True
         self.audio_finished = True
         self.stop_scanning_leds()
 
@@ -251,7 +251,7 @@ class PiNode(Node):
                     # Start a timer to check for audio completion
                     self.get_logger().info("Making audio_check_timer.")
                     self.audio_check_timer = self.create_timer(
-                        0.2,  # Check every 0.1 seconds
+                        0.2,  # Check every 0.2 seconds
                         lambda: self.check_audio_and_complete(
                             msg.seq,
                             msg.person_id,
@@ -374,13 +374,14 @@ class PiNode(Node):
             self.get_logger().info(f"Found card with UID: {uid_int}")
             self.person_id = uid_int
         if initial_person_id != self.person_id:
-        # Stop any playback if the assigned person ID changes
+            # Stop any playback if the assigned person ID changes.
             self.stop_audio_playback()
-        msg = PiPersonUpdates()
-        msg.pi_id = self.pi_id
-        msg.person_id = self.person_id
-        for i in range(5):
-            self.pi_person_updates_publisher.publish(msg)
+            # Publish only if the assigned person ID changes.
+            msg = PiPersonUpdates()
+            msg.pi_id = self.pi_id
+            msg.person_id = self.person_id
+            for i in range(5):
+                self.pi_person_updates_publisher.publish(msg)
 
 
 def main(args=None):

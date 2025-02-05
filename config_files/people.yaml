@@ -219,56 +219,56 @@ people:
         response: "anecdote"
         description: "You love sharing stories about places you have visited, especially trips to art museums or galleries."
 
-  123456789:
-    name: "Bob Spinac"
-    voice_id: ""
-    gender: "male"
-    age: 44
-    color: [255,0,200] # In RGB
-    history: "I used to work in the navy."
-    question: "Should I go to the gym more often?"
-    question_category: "health"
-    deep_question: "What role should discipline and pleasure play in caring for our physical well-being?"
-    alone_response: "You say you might go completely crazy here alone, because humans are social animals after all."
-    personality: "I am a gruff man."
-    relationships:
-    question_responses:
-      beauty: 
-        response: "insults"
-        description: "You detest painting and have no interest in aesthetics."
-      food:
-        response: "excitement"
-        description: "You adore food and love to talk about it.  You fear you might become a bit overweight because you love food so much."
-      romance:
-        response: "avoidance"
-        description: "Your wife died last year so you find it hard to talk about these things."
-      health:
-        response: "redirection"
-        description: "You have no real interest in this."
-      family:
-        response: "avoidance"
-        description: "Your wife died last year so you find it hard to talk about these things."
-      work:
-        response: "anecdote"
-        description: "You love telling stories about your days in the navy."
-      technology:
-        response: "ignore"
-        description: "You know nothing about this."
-      social:
-        response: "opinion"
-        description: "You are friendly guy so love to gossip about social dilemmas."
-      education:
-        response: "redirection"
-        description: "You never got much of an education and do regret this."
-      future:
-        response: "derision"
-        description: "There is no point thinking about the future, live in the present." 
-      finance:
-        response: "encouragement"
-        description: "It's important to take care of your pennies to save for a comfortable retirement." 
-      travel:
-        response: "anecdote"
-        description: "You love telling stories about your days in the navy."
+  # 123456789:
+  #   name: "Bob Spinac"
+  #   voice_id: ""
+  #   gender: "male"
+  #   age: 44
+  #   color: [255,0,200] # In RGB
+  #   history: "I used to work in the navy."
+  #   question: "Should I go to the gym more often?"
+  #   question_category: "health"
+  #   deep_question: "What role should discipline and pleasure play in caring for our physical well-being?"
+  #   alone_response: "You say you might go completely crazy here alone, because humans are social animals after all."
+  #   personality: "I am a gruff man."
+  #   relationships:
+  #   question_responses:
+  #     beauty: 
+  #       response: "insults"
+  #       description: "You detest painting and have no interest in aesthetics."
+  #     food:
+  #       response: "excitement"
+  #       description: "You adore food and love to talk about it.  You fear you might become a bit overweight because you love food so much."
+  #     romance:
+  #       response: "avoidance"
+  #       description: "Your wife died last year so you find it hard to talk about these things."
+  #     health:
+  #       response: "redirection"
+  #       description: "You have no real interest in this."
+  #     family:
+  #       response: "avoidance"
+  #       description: "Your wife died last year so you find it hard to talk about these things."
+  #     work:
+  #       response: "anecdote"
+  #       description: "You love telling stories about your days in the navy."
+  #     technology:
+  #       response: "ignore"
+  #       description: "You know nothing about this."
+  #     social:
+  #       response: "opinion"
+  #       description: "You are friendly guy so love to gossip about social dilemmas."
+  #     education:
+  #       response: "redirection"
+  #       description: "You never got much of an education and do regret this."
+  #     future:
+  #       response: "derision"
+  #       description: "There is no point thinking about the future, live in the present." 
+  #     finance:
+  #       response: "encouragement"
+  #       description: "It's important to take care of your pennies to save for a comfortable retirement." 
+  #     travel:
+  #       response: "anecdote"
+  #       description: "You love telling stories about your days in the navy."
 
 
 # Question response types:

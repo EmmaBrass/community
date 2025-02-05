@@ -212,7 +212,7 @@ class PersonLLM():
         # TODO JUST send these to the GPT rather than saving them?
         # But the saved list might be useful for a compressed memory version...
         # Every x minutes, send each person a compressed memory update summarising conversations had thus far ?
-        # Maybe not needed as teh story-writing will be directing things enough that 
+        # Maybe not needed as the story-writing will be directing things enough that 
         # a poor memory won't be noticable ?
         name = self.get_name_from_person_id(person_id)
         response, message_id = self.add_user_message_and_get_response(f"<TEXT> {name} says this: {text}")
@@ -380,6 +380,8 @@ class PersonLLM():
         for message_id in messages_to_delete:
             self.delete_message(message_id)
             time.sleep(0.1)  # Adding a small delay to avoid rate limiting
+
+        return True
 
     def delete_message(self, message_id: str):
         """ 

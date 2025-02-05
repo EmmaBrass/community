@@ -48,8 +48,9 @@ DIRECT_PERCENT = 20
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just an open comment
 SWITCH_PERCENT = 38
 
-# How many pieces of text for future speech should be stored at any time, so that we don't needlessly over-query the GPT
-MAX_SPEAK_LIST_LEN = 5
+# How many pieces of text should be in speak list PLUS text requests not yet responded to, 
+# so that we don't needlessly over-query the LLM clients
+MAX_SPEAK_BACKLOG_LEN = 8
 
 # If there are loads of events in a short space of time, a group will end up talking about an event way after it has happened
 # We have a check that (elapsed_seconds-event_timestamp) < MAX_EVENT_DISCUSS_WAIT (in seconds)

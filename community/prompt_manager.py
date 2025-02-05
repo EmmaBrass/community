@@ -99,11 +99,11 @@ class PromptManager():
             message_type: int, 
             directed_id: int, 
             event_id: int, 
-            state_changed: bool, 
-            from_state: str, 
-            to_state: str, 
-            action: str, 
-            transition_description: str,
+            # state_changed: bool, 
+            # from_state: str, 
+            # to_state: str, 
+            # action: str, 
+            # transition_description: str,
             question_id: int,
             question_phase: int,
             mention_question: bool
@@ -264,12 +264,12 @@ class PromptManager():
             directed_name = self.get_name_by_id(directed_id)
             prompt_details += f"This response will be directed at {directed_name}; say their first name in your response."
             # Check if state of the relationship has changed and comment on that
-            if state_changed == True:
-                prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}."
-                if transition_description != 'None':
-                    prompt_details += f"Say something like: {transition_description}."
-            if action != 'None':
-                prompt_details += f"Say something like: {action}"
+            # if state_changed == True:
+            #     prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}."
+            #     if transition_description != 'None':
+            #         prompt_details += f"Say something like: {transition_description}."
+            # if action != 'None':
+            #     prompt_details += f"Say something like: {action}"
 
         elif MessageType(message_type).name == 'EVENT':
             # Use event_id to get event description and urgency and discuss it.  

@@ -6,24 +6,29 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.task import Future
 
 from std_msgs.msg import String
 from std_msgs.msg import Int16MultiArray
 
 from community_interfaces.msg import (
-    PiSpeechRequest,
     PiPersonUpdates,
     GroupInfo
 )
+from community_interfaces.srv import (
+    PiSpeechRequest
+)
+
 import community.configuration as config
 from community.message_type import MessageType
 from community.helper_functions import HelperFunctions
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from piper.voice import PiperVoice
 import random, os, yaml, wave
 
 from ament_index_python.packages import get_package_share_directory
-
 
 
 class GroupAssignmentNode(Node):
@@ -32,10 +37,6 @@ class GroupAssignmentNode(Node):
         super().__init__('group_assignment_node')
 
         self.restart = True # If the system has just been started up, this enables reset of seq ids on RPis.
-
-        self.group_info_seq = 0
-
-        self.hello_seq = 1
 
         # Helper functions
         self.helper = HelperFunctions()
@@ -52,7 +53,6 @@ class GroupAssignmentNode(Node):
             self.pi_person_assignments.append({'group_id': group_id, 'members': members})
         self.get_logger().info(str(self.pi_person_assignments))
 
-
         # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
         self.hello_list = ['Hello there! What a nice day it is.', 
                            'Hellooooo good people of the world.', 
@@ -63,25 +63,62 @@ class GroupAssignmentNode(Node):
                            'Howdy folks, I\'m so excited to have joined this group.', 
                            'I\'m so happy to be here in this group, I cannot wait.'
                            ]
+        
+        # Create callback groups
+        callback_group_1 = MutuallyExclusiveCallbackGroup()
+        callback_group_2 = MutuallyExclusiveCallbackGroup()
+        callback_group_3 = MutuallyExclusiveCallbackGroup()
 
-        # Initialise publisher
-        self.group_info_publisher = self.create_publisher(GroupInfo, 'group_info', 10)
-        self.pi_speech_request_publisher = self.create_publisher(PiSpeechRequest, 'pi_speech_request', 10)
+        # Initialise timer callback
+        # Publishing happens within the timer_callback
         timer_period = 0.5  # seconds
-        self.timer = self.create_timer(timer_period, self.timer_callback) # Publishing happens within the timer_callback
-
-        # Initialise subscribers
+        self.timer = self.create_timer(
+            timer_period, 
+            self.timer_callback,
+            callback_group=callback_group_1
+        ) 
+        # Initialise publisher
+        self.group_info_publisher = self.create_publisher(
+            GroupInfo, 
+            'group_info', 
+            10,
+            callback_group=callback_group_2
+        )
+        # Initialise subscriber
         self.pi_person_updates_subscription = self.create_subscription(
             PiPersonUpdates,
             'pi_person_updates', 
             self.pi_person_updates_callback, 
-            10
+            10,
+            callback_group=callback_group_3
         )
-        # Prevent unused variable warnings
-        self.pi_person_updates_subscription
 
+        # Initialise service clients
+        # Extract all pi_ids
+        all_pi_ids = [pi_id for group in config.GROUP_PI_ASSIGNMENTS.values() for pi_id in group['pi_ids']]
+        # Dictionaries to store service clients, and callback groups
+        self.pi_speech_request_clients = {}
+        self.pi_speech_request_callback_groups = {}
+        # Create a service client and callback group for each pi in this group
+        for pi_id in all_pi_ids:
+            # Unique service name per Pi
+            service_name = f'pi_speech_request_{pi_id}'  
+            # Create a separate MutuallyExclusiveCallbackGroup for each client
+            self.pi_speech_request_callback_groups[pi_id] = MutuallyExclusiveCallbackGroup()
+            # Create a service client bound to this callback group
+            client = self.create_client(
+                PiSpeechRequest, 
+                service_name, 
+                callback_group=self.pi_speech_request_callback_groups[pi_id]
+            )
+            # Store references
+            self.pi_speech_request_clients[pi_id] = client
+            # Wait for the service to be available
+            while not client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().info(f'Service {service_name} not available, waiting...')
 
-    def update_pi_person_assignments(self, pi_id: int, new_person_id:int):
+            
+    def pi_person_updates_callback(self, msg):
         """
         Update the person_id assigned to a specific pi_id in self.pi_person_assignments.
 
@@ -95,51 +132,44 @@ class GroupAssignmentNode(Node):
             # Loop through each member in the group
             for member in group['members']:
                 # Check if the current member has the specified pi_id
-                if member['pi_id'] == pi_id:
-                    if member['person_id'] != new_person_id:
-                        member['person_id'] = new_person_id
+                if member['pi_id'] == msg.pi_id:
+                    if member['person_id'] != msg.person_id:
+                        member['person_id'] = msg.person_id
                         self.get_logger().info("new_person_id")
-                        self.get_logger().info(str(new_person_id))
-                        if new_person_id != 0:
-                            voice_id = self.helper.get_voice_id(new_person_id)
-                            color = self.helper.get_color(new_person_id)
+                        self.get_logger().info(str(msg.person_id))
+                        if msg.person_id != 0:
+                            voice_id = self.helper.get_voice_id(msg.person_id)
+                            color = self.helper.get_color(msg.person_id)
                             # Convert text to .wav audio file bytes.
                             text = random.choice(self.hello_list)
                             audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
-                            # Publish a PiSpeechRequest so that the person can say hello
-                            self.pi_speech_request_pub(new_person_id, pi_id, color, current_group_id, voice_id, text, audio_uint8)
+                            # Use PiSpeechRequest client so that the person can say hello
+                            self.pi_speech_request(msg.person_id, msg.pi_id, color, current_group_id, voice_id, text, audio_uint8)
                     return True  # Return True if an update took place
+        self.get_logger().error("Pi ID not found in any group!")
         return False  # Return False if the pi_id was not found in any group
     
-    def pi_speech_request_pub(self, person_id, pi_id, color, group_id, voice_id, text, audio_uint8):
-        msg = PiSpeechRequest()
-        msg.seq = self.hello_seq
-        msg.voice_id = voice_id
-        msg.person_id = person_id
-        msg.pi_id = pi_id
-        msg.color = color
-        msg.group_id = group_id
-        msg.people_in_group = []
-        msg.message_type = MessageType.HELLO.value
-        msg.text = text
-        msg.gpt_message_id = "0"
-        msg.directed_id = 0
-        msg.relationship_ticked = False
-        msg.relationship_tick = 0
-        msg.chaos_phase = False
-        msg.audio_data = audio_uint8
-        for i in range(5):
-            self.pi_speech_request_publisher.publish(msg)
-        self.hello_seq += 1
+    def pi_speech_request(self, person_id, pi_id, color, group_id, voice_id, text, audio_uint8):
+        request = PiSpeechRequest.Request()
+        request.person_id = person_id
+        request.pi_id = pi_id
+        request.color = color
+        request.group_id = group_id
+        request.voice_id = voice_id
+        request.text = text
+        request.audio_data = audio_uint8
+        future = self.pi_speech_request_clients[pi_id].call_async(request)
+        future.add_done_callback(self.pi_speech_request_callback)
 
-    def pi_person_updates_callback(self, msg):
+    def pi_speech_request_callback(self, future: Future):
         """
-        Callback for info on what person is assigned to what pi.
+        Callback for the future, that will be called when the request is done.
         """
-        # Update the pi/person assignments list
-        success = self.update_pi_person_assignments(msg.pi_id, msg.person_id)
-        if success == False:
-            self.get_logger().error("Pi ID not found in any group!")
+        response = future.result()
+        if response.completed == True:
+            self.get_logger().info("Pi speech request completed.")
+        else:
+            self.get_logger().info("Pi speech request not completed.")
 
     def timer_callback(self):
         """
@@ -148,7 +178,6 @@ class GroupAssignmentNode(Node):
         # Publish for every group
         for group in self.pi_person_assignments:
             msg = GroupInfo()
-            msg.seq = self.group_info_seq
             msg.group_id = group['group_id']
             msg.num_pis = len(group['members'])
             msg.person_ids = [member['person_id'] for member in group['members']]
@@ -158,16 +187,16 @@ class GroupAssignmentNode(Node):
                 self.restart = False
             else:
                 msg.restart = False
-            for i in range(5):
-                self.group_info_publisher.publish(msg)
-            self.group_info_seq += 1
+            self.group_info_publisher.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)
 
     group_assignment_node = GroupAssignmentNode()
+    # Use MultiThreadedExecutor to allow parallel execution
+    executor = MultiThreadedExecutor()
 
-    rclpy.spin(group_assignment_node)
+    rclpy.spin(group_assignment_node, executor)
 
     # Destroy the node explicitly
     # (optional - otherwise it will be done automatically
