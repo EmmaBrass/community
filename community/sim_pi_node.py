@@ -43,7 +43,6 @@ class SimPiNode(Node):
 
         # For tracking audio playback
         self.playback_process = None
-        self.stop_playback = False
 
         # Flag indicating if audio playback is finished
         self.audio_finished = True  
@@ -98,7 +97,6 @@ class SimPiNode(Node):
         # Play audio
         self.get_logger().info("Playing .wav file")
         self.playback_process = subprocess.Popen(['aplay', file_path])
-        self.stop_playback = False
 
     def stop_audio_playback(self):
         """
@@ -108,7 +106,6 @@ class SimPiNode(Node):
             self.playback_process.terminate()
             self.get_logger().info("Stopped playback.")
             self.playback_process = None
-        self.stop_playback = True
         self.audio_finished = True
 
     def monitor_playback(self):
@@ -147,6 +144,7 @@ class SimPiNode(Node):
             while not self.audio_finished:
                 time.sleep(0.5)
 
+            response.completed = True
             return response
 
         else:

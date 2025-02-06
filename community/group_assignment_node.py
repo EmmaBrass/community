@@ -55,7 +55,7 @@ class GroupAssignmentNode(Node):
 
         # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
         self.hello_list = ['Hello there! What a nice day it is.', 
-                           'Hellooooo good people of the world.', 
+                           'Hello good people of the world.', 
                            'Hey, glad to be here with you.', 
                            'Hey, it\'s nice to be here, I wouldn\'t want to be anywhere else.', 
                            'Hello there. It\'s great to be here with you!', 

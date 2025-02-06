@@ -22,7 +22,7 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1,2,3,4]}
+    1 : {'pi_ids': [1]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},

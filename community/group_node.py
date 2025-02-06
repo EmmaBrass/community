@@ -10,8 +10,7 @@ from community_interfaces.srv import (
     LlmTextRequest,
     LlmRewindRequest,
     LlmUpdateRequest,
-    PiSpeechRequest,
-    RelationshipAction
+    PiSpeechRequest
 )
 import community.configuration as config
 from community.message_type import MessageType
@@ -198,7 +197,7 @@ class GroupNode(Node):
                         self.get_logger().info(str(config.CHAOS_QUESTION_PHASE))
                         # Rewind speak list as group makeup has changed, if not in chaos phase
                         if self.helper.get_question_phase() < config.CHAOS_QUESTION_PHASE:
-                            self.get_logger().ino("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEeeeeeeeeeeeeeeeeee")
+                            self.get_logger().info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEeeeeeeeeeeeeeeeeee")
                             self.llm_rewind(False, person_id)
 
             # Check for new person added, if there > 0 members of the group in the message
@@ -442,7 +441,7 @@ class GroupNode(Node):
         else:
             self.get_logger().info(f"Llm text for person {person_id} not completed successfully.")
 
-    def pi_speech_callback(self, future: Future):
+    def pi_speech_callback(self, future: Future, person_id, gpt_message_id):
         """
         Callback for info that the pi has finished speaking a requested text.
         The message should bemoved to spoken_list when request is SENT, and this just records if the pi completed it fully or not.
@@ -455,8 +454,8 @@ class GroupNode(Node):
         if response.completed == True: # Update the dict to say the message speaking was completed by the pi.
             # find item in spoken list with the same gpt_message_id
             for item in reversed(self.spoken_list):
-                if (item['gpt_message_id'] == response.gpt_message_id and
-                item['person_id'] == response.person_id):
+                if (item['gpt_message_id'] == gpt_message_id and
+                item['person_id'] == person_id):
                     # update 'completed' to be True
                     item['completed'] = True
                     break
@@ -491,7 +490,9 @@ class GroupNode(Node):
                 request.audio_data = self.helper.text_to_speech_bytes(random.choice(self.goodbye_list), voice_id, self.group_id)
                 self.last_speech_completed = False
                 future = self.pi_speech_request_clients[pi_id].call_async(request)
-                future.add_done_callback(self.pi_speech_callback)
+                future.add_done_callback(partial(self.pi_speech_callback,
+                                        person_id=speaker,
+                                        gpt_message_id=""))
 
             # Check if new speech required (if last person's speech has been spoken).
             # Send a request to the Pi to SPEAK.
@@ -512,16 +513,18 @@ class GroupNode(Node):
                     request.group_id = self.group_id
                     request.voice_id = voice_id
                     request.color = self.helper.get_color(text_dict['person_id'])
-                    request.message_type = MessageType.GOODBYE.value
-                    request.text = ""
-                    request.gpt_message_id = ""
-                    request.directed_id = 0
-                    request.question_id = 0
+                    request.message_type = text_dict['message_type']
+                    request.text = text_dict['text']
+                    request.gpt_message_id = text_dict['gpt_message_id']
+                    request.directed_id = text_dict['directed_id']
+                    request.question_id = text_dict['question_id']
                     request.mention_question = text_dict['mention_question']
                     request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
                     self.last_speech_completed = False
                     future = self.pi_speech_request_clients[text_dict['pi_id']].call_async(request)
-                    future.add_done_callback(self.pi_speech_callback)
+                    future.add_done_callback(partial(self.pi_speech_callback,
+                                        person_id=text_dict['person_id'],
+                                        gpt_message_id=text_dict['gpt_message_id']))
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
 
@@ -651,7 +654,9 @@ class GroupNode(Node):
                         request.mention_question = text_dict['mention_question']
                         request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, person_id)
                         future = self.pi_speech_request_clients[person_id].call_async(request)
-                        future.add_done_callback(self.pi_speech_callback)
+                        future.add_done_callback(partial(self.pi_speech_callback,
+                                                person_id=person_id,
+                                                gpt_message_id=text_dict['gpt_message_id']))
                     else:
                         self.get_logger().info("Person is not in group or not on same pi anymore !")
 
@@ -674,7 +679,9 @@ class GroupNode(Node):
                     request.mention_question = False
                     request.audio_data = self.generate_static_sounds(output_dir=self.static_output_directory, duration=6)
                     future = self.pi_speech_request_clients[speaker].call_async(request)
-                    future.add_done_callback(self.pi_speech_callback)
+                    future.add_done_callback(partial(self.pi_speech_callback,
+                                            person_id=person_id,
+                                            gpt_message_id=""))
 
     def check_last_question_mention(self, person_id):
         """

@@ -27,7 +27,6 @@ setup(
             'group_assignment_node = community.group_assignment_node:main',
             'group_node = community.group_node:main',
             'person_node = community.person_node:main',
-            'relationship_manager_node = community.relationship_manager_node:main',
             'sim_pi_node = community.sim_pi_node:main',
             'sim_pi_controller_node = community.sim_pi_controller_node:main',
         ],
