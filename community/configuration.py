@@ -22,7 +22,7 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1]}
+    1 : {'pi_ids': [1,2,3,4,5]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
@@ -64,12 +64,6 @@ CHAOS_QUESTION_PHASE = 5
 
 # Which question phase is electronic static (over one another)
 STATIC_QUESTION_PHASE = 6
-
-# What % of the time to add in a fact from the internet to back up a point
-DATA_FACT_PERCENT = 25
-
-
-
 
 
 

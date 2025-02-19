@@ -78,3 +78,11 @@ phases:
       hours: 0
       minutes: 11
       seconds: 0
+
+  6:
+    description: "Electronic static sounds only."
+    id: 6
+    timestamp:
+      hours: 0
+      minutes: 13
+      seconds: 0

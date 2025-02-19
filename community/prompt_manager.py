@@ -119,13 +119,7 @@ class PromptManager():
 
         :returns prompt_details: A string to be passed to the LLM to help guide its output text.
         """
-
-        # TODO if the message_type is SWITCH, we need a flag on the person for whether their question has previously been discussed.
-        # If not, introduce it
-        # If yet, still introduce it but less forcefully
-        # Also need to deal with how this will work with history rewinds
         # TODO responses could also be modulated by their relationship with another person!
-
 
         # Get current question and question category
         if question_id != 0:
@@ -168,8 +162,6 @@ class PromptManager():
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 You sympathise with them entirely, you do not disagree with anything and you seek to make them feel better about themselves. "
-                if random.randint(0,100) < config.DATA_FACT_PERCENT:
-                    prompt_details+= "Select some pertinent, recent numberical data to help them answer their question. "
                 if MessageType(message_type).name == 'INTERRUPT': 
                     # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
                     prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
@@ -193,8 +185,6 @@ class PromptManager():
             else:
                 prompt_details = f"The current question being discussed is: {current_question} The question category is: {question_category}.\
                 {response_category_description} The reason for this is: {response_description}. "
-                if random.randint(0,100) < config.DATA_FACT_PERCENT:
-                    prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
         elif question_phase == 3: # Anger towards questions that elicit difficut emotions
 
@@ -217,8 +207,6 @@ class PromptManager():
                 {response_category_description}  The reason for this is: {response_description}. "
                 if response_category in self.difficult_categories:
                     prompt_details += "React very negatively!  You hate difficult emotions and hate that this person is making you feel them! "
-                if random.randint(0,100) < config.DATA_FACT_PERCENT:
-                    prompt_details+= "Use some pertinent data fact to back up your point of view. "
             
         elif question_phase == 4: # Full anger towards everyone else.
 
@@ -257,7 +245,7 @@ class PromptManager():
 
         if MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
-            prompt_details += f"You are interrupting a back-and-forth between two people. Say something analagous to 'sorry to interrupt...'."
+            prompt_details += f"You are interrupting a back-and-forth between two people. Say something analagous to 'sorry to interrupt...'"
 
         elif MessageType(message_type).name == 'DIRECT':
             # Get name of person the message is directed at using directed_id

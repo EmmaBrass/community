@@ -55,15 +55,13 @@ class GroupConvoManager():
         return 0  # Returns 0 if no event to talk about, or events turned off in config file
     
     
-    def get_next(self, group_members, last_speaker, second_last_speaker, last_question_id, last_message_directed=0):
+    def get_next(self, group_members, last_item, second_last_item):
         """
         Get next speaker and speech type.
 
         :param group_members: Current group members.
-        :param last_speaker: Who spoke most recently.
-        :param second_last_speaker: Who spoke second to last.
-        :param last_question_id: The ID of the person whose question is currently being discussed.
-        :param last_message_directed: Who the last message was directed at, if anyone.
+        :param last_item: The most recent spoken thing to consider.
+        :param second_last_item: The second most recent spoken thing to consider.
 
         :returns next_speaker: The next group member to talk
         :returns message_type: What type of thing they are going to say.
@@ -71,9 +69,20 @@ class GroupConvoManager():
         :returns event_id: If of event to be talked about (0 if none)
         """
 
-        # If SWITCH, do not SWITCH to whoever's question is already being discussed.
-        # If this is the case, the either don't use the SWITCH message type, or switch to a different person.
-        # Need to pass currently-being-discussed-question_id here as a function param to be able to work this out...
+        if last_item != None:
+            last_speaker = last_item['person_id'] # Who spoke most recently
+            last_message_directed = last_item['directed_id'] # Who the last message was directed at, if anyone.
+            last_question_id = last_item['question_id'] # The ID of the person whose question is currently being discussed.
+            last_message_type = last_item['message_type'] # The message type of the most recent message (int)
+        else:
+            last_speaker = None
+            last_message_directed = None
+            last_question_id = None
+            last_message_type = None
+        if second_last_item != None:
+            second_last_speaker = last_item['person_id']
+        else:
+            second_last_speaker = None
 
         # directed_id is 0 (noone) by default (message not directed at anyone)
         directed_id = 0
@@ -85,6 +94,11 @@ class GroupConvoManager():
 
         question_phase = self.helper.get_question_phase() #TODO this will AFFECT the message type 
         # -> e.g. cannot have SWITCH as a message type if we have moved on to question phase 5 onwards.
+        # In phase 4, there should be more of people asking their own questions.
+        if question_phase < config.CHAOS_QUESTION_PHASE-1:
+            switch_percent = config.SWITCH_PERCENT
+        else:
+            switch_percent = config.SWITCH_PERCENT + 20
 
         if self.first_question_flag == True:
             message_type = MessageType.SWITCH.value
@@ -106,14 +120,13 @@ class GroupConvoManager():
             # Next speaker is person in group_members who is not last_speaker!
             filtered_members = [item for item in group_members if item != last_speaker]
             next_speaker = random.choice(filtered_members)
-            filtered_members = [item for item in group_members if item != next_speaker]
-            directed_id = filtered_members[0] # Drect next message to the other person
+            directed_id = [item for item in filtered_members if item != next_speaker][0] # Direct next message to the other person
             event_id = self.event_checker()
             if event_id != 0:
                 message_type = MessageType.EVENT.value
             else: 
                 rand = random.randint(0, 100)
-                if rand <= config.SWITCH_PERCENT and next_speaker != last_question_id:
+                if rand <= switch_percent and next_speaker != last_question_id:
                     message_type = MessageType.SWITCH.value
                     question_id = next_speaker
                 else:
@@ -122,7 +135,7 @@ class GroupConvoManager():
 
         elif len(group_members) > 2:
             interrupt_check = random.randint(0,100)
-            if last_speaker == 0:
+            if last_speaker == None:
                 # Noone has spoken yet - startup of the system
                 # Just choose someone random from existing members
                 next_speaker = random.choice(group_members)
@@ -131,12 +144,12 @@ class GroupConvoManager():
                     message_type = MessageType.EVENT.value
                 else: 
                     rand = random.randint(0, 100)
-                    if rand <= config.SWITCH_PERCENT and next_speaker != last_question_id:
+                    if rand <= switch_percent and next_speaker != last_question_id:
                         message_type = MessageType.SWITCH.value
                         question_id = next_speaker
                     else:
                         message_type = MessageType.OPEN.value
-            elif last_message_directed != 0 and self.back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
+            elif last_message_directed != None and self.back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
                 # Last message was directed, and next one will be too
                 next_speaker = last_message_directed # get the person who the last message was directed at
                 message_type = MessageType.DIRECT.value
@@ -145,7 +158,7 @@ class GroupConvoManager():
                     self.back_and_forth_counter +=1
                 else:
                     self.back_and_forth_counter = 0
-            elif last_message_directed != 0 and (self.back_and_forth_counter >= config.BACK_AND_FORTH_MAX or interrupt_check <= config.INTERRUPT_PERCENT):
+            elif last_message_directed != None and (self.back_and_forth_counter >= config.BACK_AND_FORTH_MAX or interrupt_check <= config.INTERRUPT_PERCENT):
                 # Interrupt a back and forth exchange 
                 event_id = self.event_checker()
                 if event_id != 0:
@@ -156,13 +169,14 @@ class GroupConvoManager():
                 filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
                 self.back_and_forth_counter = 0
-            elif last_message_directed == 0: # last message was not directed at anyone
+            elif last_message_directed == None: # last message was not directed at anyone
                 # Choose anyone apart from last speaker AND second to last speaker (as more than 2 people in group)
                 filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
                 # Last message was not directed; next one doesn't need to be
                 # But could be based on some percentage
                 # Choose if the message should be directed at anyone
+                # Should NOT be directed at someone random - should always be directed at who just spoke ! (otherwise it sounds weird)
                 event_id = self.event_checker()
                 if event_id != 0:
                     message_type = MessageType.EVENT.value
@@ -170,10 +184,9 @@ class GroupConvoManager():
                     rand = random.randint(0, 100)
                     if rand < config.DIRECT_PERCENT:
                         message_type = MessageType.DIRECT.value
-                        # Direct at someone
-                        filtered_members = [item for item in group_members if item != last_speaker and item != next_speaker]
-                        directed_id = random.choice(filtered_members)
-                    elif rand >= config.DIRECT_PERCENT and rand < (config.DIRECT_PERCENT + config.SWITCH_PERCENT) and next_speaker != last_question_id:
+                        # Direct at last speaker
+                        directed_id = last_speaker
+                    elif rand >= config.DIRECT_PERCENT and rand < (config.DIRECT_PERCENT + switch_percent) and next_speaker != last_question_id:
                         message_type = MessageType.SWITCH.value
                         question_id = next_speaker
                     else: 

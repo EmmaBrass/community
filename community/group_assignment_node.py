@@ -68,6 +68,7 @@ class GroupAssignmentNode(Node):
         callback_group_1 = MutuallyExclusiveCallbackGroup()
         callback_group_2 = MutuallyExclusiveCallbackGroup()
         callback_group_3 = MutuallyExclusiveCallbackGroup()
+        callback_group_4 = MutuallyExclusiveCallbackGroup()
 
         # Initialise timer callback
         # Publishing happens within the timer_callback
@@ -77,12 +78,19 @@ class GroupAssignmentNode(Node):
             self.timer_callback,
             callback_group=callback_group_1
         ) 
+        # Initialise timer callback for checking the status of the pi services
+        pi_timer_period = 0.5  # seconds
+        self.pi_timer = self.create_timer(
+            pi_timer_period, 
+            self.pi_timer_callback,
+            callback_group=callback_group_2
+        ) 
         # Initialise publisher
         self.group_info_publisher = self.create_publisher(
             GroupInfo, 
             'group_info', 
             10,
-            callback_group=callback_group_2
+            callback_group=callback_group_3
         )
         # Initialise subscriber
         self.pi_person_updates_subscription = self.create_subscription(
@@ -90,7 +98,7 @@ class GroupAssignmentNode(Node):
             'pi_person_updates', 
             self.pi_person_updates_callback, 
             10,
-            callback_group=callback_group_3
+            callback_group=callback_group_4
         )
 
         # Initialise service clients
@@ -98,6 +106,7 @@ class GroupAssignmentNode(Node):
         all_pi_ids = [pi_id for group in config.GROUP_PI_ASSIGNMENTS.values() for pi_id in group['pi_ids']]
         # Dictionaries to store service clients, and callback groups
         self.pi_speech_request_clients = {}
+        self.pi_service_status = {pi_id: False for pi_id in all_pi_ids}
         self.pi_speech_request_callback_groups = {}
         # Create a service client and callback group for each pi in this group
         for pi_id in all_pi_ids:
@@ -113,11 +122,27 @@ class GroupAssignmentNode(Node):
             )
             # Store references
             self.pi_speech_request_clients[pi_id] = client
-            # Wait for the service to be available
-            while not client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info(f'Service {service_name} not available, waiting...')
+            # Check if the client is available, but only breifly
+            ready = client.wait_for_service(timeout_sec=1.0)
+            if ready:
+                self.pi_service_status[pi_id] = True
+                self.get_logger().info(f'Service {service_name} is available!')
+            else:
+                self.pi_service_status[pi_id] = False
+                self.get_logger().warning(f'Service {service_name} is offline!')
 
-            
+    def check_pi_services(self):
+        """Check if the Pi services are available and update status."""
+        for pi_id, client in self.pi_speech_request_clients.items():
+            if client.service_is_ready():
+                if not self.pi_service_status[pi_id]:
+                    self.get_logger().info(f'Service pi_speech_request_{pi_id} is now available!')
+                self.pi_service_status[pi_id] = True
+            else:
+                if self.pi_service_status[pi_id]:
+                    self.get_logger().warning(f'Service pi_speech_request_{pi_id} went offline!')
+                self.pi_service_status[pi_id] = False
+
     def pi_person_updates_callback(self, msg):
         """
         Update the person_id assigned to a specific pi_id in self.pi_person_assignments.
@@ -144,7 +169,8 @@ class GroupAssignmentNode(Node):
                             text = random.choice(self.hello_list)
                             audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
                             # Use PiSpeechRequest client so that the person can say hello
-                            self.pi_speech_request(msg.person_id, msg.pi_id, color, current_group_id, voice_id, text, audio_uint8)
+                            if self.pi_service_status.get(msg.pi_id, False): # Check that the pi is online before sending 'hello' speech
+                                self.pi_speech_request(msg.person_id, msg.pi_id, color, current_group_id, voice_id, text, audio_uint8)
                     return True  # Return True if an update took place
         self.get_logger().error("Pi ID not found in any group!")
         return False  # Return False if the pi_id was not found in any group
@@ -170,6 +196,12 @@ class GroupAssignmentNode(Node):
             self.get_logger().info("Pi speech request completed.")
         else:
             self.get_logger().info("Pi speech request not completed.")
+
+    def pi_timer_callback(self):
+        """
+        Check and update the current status of the pi services.
+        """
+        self.check_pi_services()
 
     def timer_callback(self):
         """
