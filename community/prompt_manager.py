@@ -32,6 +32,7 @@ class PromptManager():
         self.person_id = person_id
 
         self.response_category_dict = {
+            'confusion' : "You respond to questions like this by explaining that you do not really understand the topic.",
             'anecdote' : "You respond to questions like this with a quick anecdote from your own life.",
             'opinion' : "You respond to questions like this with your own strong opinion on the topic.",
             'reading_suggestions' : "You respond to questions like this with some reading suggestions.",
@@ -40,13 +41,12 @@ class PromptManager():
             'excitement' : "You respond to questions like this with excitement; you also really want to know the answer!",
             'redirection' : "You respond to questions like this by changing the topic and mentioning something else...",
             'insults' : "You respond to questions like this with anger and insults.  What a terrible question!",
-            'ignore' : "You respond to questions like this by ignoring them.",
             'nervousness' : "You respond to questions like this with nervousness; you struggle with this topic.",
             'sympathy' : "You respond to questions like this with sympathy and understanding.",
             'caution' : "You respond to questions like this with caution.  It's a dangerous question to be asking."
         }
 
-        self.difficult_categories = ['derision', 'redirection', 'insults', 'ignore', 'nervousness', 'caution']
+        self.difficult_categories = ['derision', 'redirection', 'insults', 'confusion', 'nervousness', 'caution']
 
         self.event_urgency_dict = {
             1 : {

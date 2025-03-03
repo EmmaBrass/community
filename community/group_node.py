@@ -468,8 +468,10 @@ class GroupNode(Node):
         self.get_logger().info('In pi_speech_callback!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         self.last_speech_completed = True
         # Wait for a second to give some pause between speech instances.
-        time.sleep(1)
+        #time.sleep(1)
+        self.get_logger().info("looking for future.result")
         response = future.result()
+        self.get_logger().info("future.result found")
         if response.completed == True: # Update the dict to say the message speaking was completed by the pi.
             # find item in spoken list with the same gpt_message_id
             for item in reversed(self.spoken_list):
@@ -548,7 +550,9 @@ class GroupNode(Node):
                     request.mention_question = text_dict['mention_question']
                     request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
                     self.last_speech_completed = False
-                    future = self.pi_speech_request_clients[text_dict['pi_id']].call_async(request)
+                    future = self.pi_speech_request_clients[text_dict['pi_id']].call_async(request) #TODO here... nothing else should be allowed to happen until speech is complete!
+                    # otherwise, 'complete' seems to be sent while it's looking elsewhere, and then 
+                    # the thing does not register the completed speech and gets stuck...
                     future.add_done_callback(partial(self.pi_speech_callback,
                                         person_id=text_dict['person_id'],
                                         gpt_message_id=text_dict['gpt_message_id']))
@@ -644,7 +648,7 @@ class GroupNode(Node):
                     # Check if the pi is still online:
                     if self.pi_service_status.get(pi, False):
                         # Request text from llm client
-                        if len(self.chaos_speak_list[pi]) < config.MAX_SPEAK_LIST_LEN:
+                        if len(self.chaos_speak_list[pi]) < config.MAX_SPEAK_BACKLOG_LEN:
                             # Get current person_id for the pi
                             person_id = self.pi_person_dict[pi]
                             self.llm_text(

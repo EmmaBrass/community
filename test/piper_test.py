@@ -4,10 +4,10 @@ from piper.voice import PiperVoice
 
 voicedir = os.path.expanduser('~/Documents/piper/') #Where onnx model files are stored on my machine
 print("HERE")
-model = voicedir+"en_GB-jenny_dioco-medium.onnx"
+model = voicedir+"en_US-lessac-medium.onnx" 
 voice = PiperVoice.load(model)
 wav_file = wave.open('hello.wav', 'w')
-text = "hello world."
+text = "hello world. This is my voice."
 audio = voice.synthesize(text,wav_file)
 
 os.system('aplay hello.wav')

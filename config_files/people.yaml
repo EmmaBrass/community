@@ -17,7 +17,7 @@
 # confusion
 # anecdote
 # opinion
-# reading_suggestions
+# reading_suggestions TODO there needs to be fewer of these.
 # derision
 # encouragement
 # excitement
@@ -28,9 +28,9 @@
 # nervousness
 
 people:
-  1:
+  6024224946:
     name: "Henry Case"
-    voice_id: ""
+    voice_id: "en_GB-alan-medium.onnx"
     gender: "male"
     age: 29
     color: [200,100,100] # In RGB
@@ -93,9 +93,9 @@ people:
           You mock the idea of blind faith, preferring the certainty of systems and logic. 
           To you, belief in the divine is just a comforting lie."
 
-  2:
+  117227880:
     name: "Johannes Fischer"
-    voice_id: ""
+    voice_id: "en_US-arctic-medium.onnx"
     gender: "male"
     age: 47
     color: [150, 150, 200] # In RGB
@@ -159,9 +159,9 @@ people:
           You wonder if moral clarity is even possible in a world so full of contradictions.  
           You fear that questioning your own beliefs might mean letting others down."
 
-  3:
+  1886024346:
     name: "Sophie Taylor"
-    voice_id: ""
+    voice_id: "en_GB-aru-medium.onnx"
     gender: "female"
     age: 7
     color: [128, 0, 128] # Purple, her favorite color
@@ -170,7 +170,7 @@ people:
       She likes dinosaur toys just like I do, so she should want to be my friend!  
       One time, I even tried to give her one of my dinosaurs, but she did not take it.  
       I do not know what to do to make her like me."
-    question_category: "friendship"
+    question_category: "social"
     alone_response: "It feels so lonely when no one wants to play with you. I just want someone to talk to!"
     question_responses:
       beauty:
@@ -294,7 +294,7 @@ people:
 
   5:
     name: "Steve Carllec"
-    voice_id: ""
+    voice_id: "en_GB-northern_english_male-medium.onnx"
     gender: "male"
     age: 26
     color: [0, 102, 204] # A cool blue, reflecting his logical and professional aspirations
@@ -345,10 +345,20 @@ people:
       education:
         response: "reading_suggestions"
         description: "You're constantly reading papers, books, and articles to stay ahead."
+      finance:
+        response: "excitement"
+        description: "This is really your area of expertise, or so you hope.
+        You love talking about it and keeping up to date on the latest in finance.
+        You need to learn more so that you do not make the crypto mistake you made before."
+      religion:
+        response: "derision"
+        description: "You think religion is a load of nonsense.
+        Money is the only god that you think is worth worshipping.
+        Those who turn to religion are weak minded and have a loose grip on reality."
 
   6:
     name: "Liam Brooks"
-    voice_id: ""
+    voice_id: "en_US-bryce-medium.onnx" # NOT WORKING
     gender: "male"
     age: 16
     color: [255, 69, 0] # A fiery orange-red to reflect his intense emotions
@@ -414,7 +424,7 @@ people:
 
   7:
     name: "Marcus Steele"
-    voice_id: ""
+    voice_id: "en_US-hfc_male-medium.onnx" # NOT WORKING
     gender: "male"
     age: 42
     color: [128, 0, 128] # A bold purple, reflecting confidence and individuality
@@ -480,7 +490,7 @@ people:
 
   8:
     name: "Daniel Reid"
-    voice_id: ""
+    voice_id: "en_US-joe-medium.onnx"
     gender: "male"
     age: 35
     color: [139, 69, 19] # A somber brown reflecting struggle and resilience
@@ -547,7 +557,7 @@ people:
 
   9:
     name: "Evelyn Harper"
-    voice_id: ""
+    voice_id: "en_US-lessac-medium.onnx"
     gender: "female"
     age: 48
     color: [255, 215, 0] # A warm gold, reflecting her hospitality and optimism
@@ -614,7 +624,7 @@ people:
 
   10:
     name: "Victoria Lang"
-    voice_id: ""
+    voice_id: "en_GB-jenny_dioco-medium.onnx"
     gender: "female"
     age: 41
     color: [70, 130, 180] # A professional steel blue, reflecting authority and focus
@@ -680,7 +690,7 @@ people:
 
   11:
     name: "Mad Al"
-    voice_id: ""
+    voice_id: "en_US-kusal-medium.onnx"
     gender: "male"
     age: 62
     color: [112, 128, 144] # A dark gray, reflecting his mysterious and skeptical nature
@@ -745,7 +755,7 @@ people:
 
   12:
     name: "Daniel Carter"
-    voice_id: ""
+    voice_id: "en_US-l2arctic-medium.onnx" # NOT WORKING
     gender: "male"
     age: 32
     color: [0, 76, 153] # A deep blue, reflecting professionalism and ambition
@@ -812,7 +822,7 @@ people:
 
   13:
     name: "Laura Bennett"
-    voice_id: ""
+    voice_id: "en_GB-semaine-medium.onnx"
     gender: "female"
     age: 51
     color: [178, 102, 255] # A deep lavender, symbolizing change and wisdom
@@ -880,7 +890,7 @@ people:
 
   14:
     name: "Miriam Holloway"
-    voice_id: ""
+    voice_id: "en_GB-vctk-medium.onnx"
     gender: "female"
     age: 58
     color: [204, 85, 170] # A deep rose pink, symbolizing beauty and self-reflection
@@ -947,7 +957,7 @@ people:
 
   15:
     name: "Zoe Matthews"
-    voice_id: ""
+    voice_id: "en_US-amy-medium.onnx"
     gender: "female"
     age: 25
     color: [255, 140, 0] # A warm amber, representing connection and hesitation

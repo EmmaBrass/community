@@ -38,7 +38,7 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 {'log_level': 'INFO'},
-                {'person_id': 17223924946}
+                {'person_id': 6024224946}
             ]
         ),
         # Person Node 2
@@ -60,19 +60,7 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 {'log_level': 'INFO'},
-                {'person_id': 5299113}
+                {'person_id': 1886024346}
             ]
         ),
-        # Person Node 4
-        Node(
-            package='community',
-            executable='person_node',
-            name='person_node_4',
-            output='screen',
-            parameters=[
-                {'log_level': 'INFO'},
-                {'person_id': 6024224946}
-            ]
-        )
-
     ])

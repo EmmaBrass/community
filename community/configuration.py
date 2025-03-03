@@ -22,7 +22,7 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1,2,3,4,5]}
+    1 : {'pi_ids': [1]} #,2,3,4,5]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
@@ -46,7 +46,7 @@ INTERRUPT_PERCENT = 30
 DIRECT_PERCENT = 20
 
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just an open comment
-SWITCH_PERCENT = 38
+SWITCH_PERCENT = 35
 
 # How many pieces of text should be in speak list PLUS text requests not yet responded to, 
 # so that we don't needlessly over-query the LLM clients

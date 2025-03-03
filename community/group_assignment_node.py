@@ -57,11 +57,11 @@ class GroupAssignmentNode(Node):
         self.hello_list = ['Hello there! What a nice day it is.', 
                            'Hello good people of the world.', 
                            'Hey, glad to be here with you.', 
-                           'Hey, it\'s nice to be here, I wouldn\'t want to be anywhere else.', 
-                           'Hello there. It\'s great to be here with you!', 
+                           'Hey, it is nice to be here, I would not want to be anywhere else.', 
+                           'Hello there. It is great to be here with you!', 
                            'Hi, looking forward to talking to you about interesting things.',
-                           'Howdy folks, I\'m so excited to have joined this group.', 
-                           'I\'m so happy to be here in this group, I cannot wait.'
+                           'Howdy folks, I am so excited to have joined this group.', 
+                           'I am so happy to be here in this group, I cannot wait.'
                            ]
         
         # Create callback groups
@@ -167,7 +167,10 @@ class GroupAssignmentNode(Node):
                             color = self.helper.get_color(msg.person_id)
                             # Convert text to .wav audio file bytes.
                             text = random.choice(self.hello_list)
+                            self.get_logger().info(f"Text-to-speech input: text={text}, voice_id={voice_id}")
                             audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
+                            if not all(isinstance(b, int) and 0 <= b <= 255 for b in audio_uint8):
+                                self.get_logger().error(f"Invalid audio data: {audio_uint8}")
                             # Use PiSpeechRequest client so that the person can say hello
                             if self.pi_service_status.get(msg.pi_id, False): # Check that the pi is online before sending 'hello' speech
                                 self.pi_speech_request(msg.person_id, msg.pi_id, color, current_group_id, voice_id, text, audio_uint8)

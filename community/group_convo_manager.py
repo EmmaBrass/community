@@ -70,10 +70,10 @@ class GroupConvoManager():
         """
 
         if last_item != None:
-            last_speaker = last_item['person_id'] # Who spoke most recently
-            last_message_directed = last_item['directed_id'] # Who the last message was directed at, if anyone.
-            last_question_id = last_item['question_id'] # The ID of the person whose question is currently being discussed.
-            last_message_type = last_item['message_type'] # The message type of the most recent message (int)
+            last_speaker = last_item['person_id'] if last_item['person_id'] != 0 else None # Who spoke most recently
+            last_message_directed = last_item['directed_id'] if last_item['directed_id'] != 0 else None # Who the last message was directed at, if anyone.
+            last_question_id = last_item['question_id'] if last_item['question_id'] != 0 else None # The ID of the person whose question is currently being discussed.
+            last_message_type = last_item['message_type']  if last_item['message_type'] != 0 else None # The message type of the most recent message (int)
         else:
             last_speaker = None
             last_message_directed = None
@@ -98,7 +98,7 @@ class GroupConvoManager():
         if question_phase < config.CHAOS_QUESTION_PHASE-1:
             switch_percent = config.SWITCH_PERCENT
         else:
-            switch_percent = config.SWITCH_PERCENT + 20
+            switch_percent = config.SWITCH_PERCENT + 5
 
         if self.first_question_flag == True:
             message_type = MessageType.SWITCH.value
@@ -120,7 +120,7 @@ class GroupConvoManager():
             # Next speaker is person in group_members who is not last_speaker!
             filtered_members = [item for item in group_members if item != last_speaker]
             next_speaker = random.choice(filtered_members)
-            directed_id = [item for item in filtered_members if item != next_speaker][0] # Direct next message to the other person
+            directed_id = [item for item in group_members if item != next_speaker][0] # Direct next message to the other person
             event_id = self.event_checker()
             if event_id != 0:
                 message_type = MessageType.EVENT.value
