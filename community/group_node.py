@@ -8,8 +8,6 @@ from community_interfaces.msg import (
 )
 from community_interfaces.srv import (
     LlmTextRequest,
-    LlmRewindRequest,
-    LlmUpdateRequest,
     PiSpeechRequest
 )
 import community.configuration as config
@@ -58,13 +56,9 @@ class GroupNode(Node):
         self.left_member_flag = False
         # If very beginning of system, mention question
         self.first_question = True
-        # Track total of text requests sent for this group
-        self.text_requests = 0
         # Flag for if last spesch and last text are completed
         self.last_speech_completed = True
         self.last_text_completed = True
-
-        self.llm_other_update_completed = {}
 
         # Speak list for chaos phase - one list for each pi.
         self.chaos_speak_list = {pi_id: [] for pi_id in self.pi_ids}
@@ -104,15 +98,11 @@ class GroupNode(Node):
 
         # Dictionaries to store service clients, and callback groups
         self.llm_text_request_clients = {}
-        self.llm_rewind_request_clients = {}
-        self.llm_update_request_clients = {}
         self.llm_callback_groups = {}
         # Create a service client and callback group for all person_ids
         for person_id, _ in self.helper.people_data.items():
             # Unique service name per Person
             llm_text_service_name = f'llm_text_request_{person_id}' 
-            llm_rewind_service_name = f'llm_rewind_request_{person_id}'  
-            llm_update_service_name = f'llm_update_request_{person_id}' 
             # Create a separate MutuallyExclusiveCallbackGroup for each client
             self.llm_callback_groups[person_id] = MutuallyExclusiveCallbackGroup()
             # Create service clients bound to these callback groups
@@ -121,27 +111,11 @@ class GroupNode(Node):
                 llm_text_service_name, 
                 callback_group=self.llm_callback_groups[person_id]
             )
-            llm_rewind_request_client = self.create_client(
-                LlmRewindRequest, 
-                llm_rewind_service_name, 
-                callback_group=self.llm_callback_groups[person_id]
-            )
-            llm_update_request_client = self.create_client(
-                LlmUpdateRequest, 
-                llm_update_service_name, 
-                callback_group=self.llm_callback_groups[person_id]
-            )
             # Store references
             self.llm_text_request_clients[person_id] = llm_text_request_client
-            self.llm_rewind_request_clients[person_id] = llm_rewind_request_client
-            self.llm_update_request_clients[person_id] = llm_update_request_client
             # Wait for the services to be available
             while not llm_text_request_client.wait_for_service(timeout_sec=1.0):
                 self.get_logger().info(f'Service {llm_text_service_name} not available, waiting...')
-            while not llm_rewind_request_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info(f'Service {llm_rewind_service_name} not available, waiting...')
-            while not llm_update_request_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().info(f'Service {llm_update_service_name} not available, waiting...') 
 
         # Initialise service clients
 
@@ -207,188 +181,27 @@ class GroupNode(Node):
                 for person_id in self.group_members:
                     if person_id not in msg.person_ids:
                         self.get_logger().info('Someone left the group')
-                        # Update all others in the group
+                        self.left_member_flag == True
+                        # Update group members
                         self.group_members.remove(person_id)
                         self.get_logger().info(f'Updated group_members: {self.group_members}')
-                        # Service for llm update
-                        self.llm_update("left", person_id)
-                        self.get_logger().info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEErrrrrrrrrrrrrrrrrrrrrrrrrrrrrr")
-                        self.get_logger().info(str(self.helper.get_question_phase()))
-                        self.get_logger().info(str(config.CHAOS_QUESTION_PHASE))
-                        # Rewind speak list as group makeup has changed, if not in chaos phase
-                        if self.helper.get_question_phase() < config.CHAOS_QUESTION_PHASE:
-                            self.get_logger().info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEeeeeeeeeeeeeeeeeee")
-                            self.llm_rewind(False, person_id)
 
             # Check for new person added, if there > 0 members of the group in the message
             if np.count_nonzero(msg.person_ids) != 0:
                 for person_id in msg.person_ids:
                     if person_id not in self.group_members and person_id != 0:
                         self.get_logger().info('Someone joined the group')
-                        # Service for llm update
-                        self.llm_update("joined", person_id)
+                        # Update group members
                         self.group_members.append(person_id)
                         self.get_logger().info(f'Updated group_members: {self.group_members}')
-                        self.get_logger().info("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEeeeeeeeeeeeeeeeeee")
-                        self.get_logger().info(str(self.helper.get_question_phase()))
-                        self.get_logger().info(str(config.CHAOS_QUESTION_PHASE))
-                        # Rewind speak list as group makeup has changed, if not in chaos phase
-                        if self.helper.get_question_phase() < config.CHAOS_QUESTION_PHASE:
-                            self.llm_rewind(True, person_id)
-
-    def llm_update(self, update_type, person_id, text=""):
-        """
-        Send service request for llm update for all people in the group.
-
-        :param type: The type of update: "left" (someone else left), "joined" (someone else joined), 
-        "new" (this person is in a new group), or "other" (someone else spoke).
-        :param person_id: The id of the person who left/joined/spoke whatever; the focus person.
-        """
-        if update_type == "left":
-            for pid in (p for p in self.group_members if p != person_id):
-                request = LlmUpdateRequest.Request()
-                request.type = "left"
-                request.person_id = person_id
-                request.group_id = self.group_id
-                request.group_members = self.group_members
-                request.text = text
-                future = self.llm_update_request_clients[pid].call_async(request)
-                future.add_done_callback(lambda f, pid=pid: self.llm_update_callback(f, pid))
-        elif update_type == "joined":
-            # Send a seperate one to the person who has joined ! -> to tell them they are in a new group. 
-            request = LlmUpdateRequest.Request()
-            request.type = "new"
-            request.person_id = person_id
-            request.group_id = self.group_id
-            request.group_members = self.group_members
-            request.text = text
-            future = self.llm_update_request_clients[person_id].call_async(request)
-            future.add_done_callback(lambda f, pid=person_id: self.llm_update_callback(f, pid))
-            # Tell everyone else they have joined.
-            for pid in (p for p in self.group_members if p != person_id):
-                request = LlmUpdateRequest.Request()
-                request.type = "joined"
-                request.person_id = person_id
-                request.group_id = self.group_id
-                request.group_members = self.group_members
-                request.text = text
-                future = self.llm_update_request_clients[pid].call_async(request)
-                future.add_done_callback(lambda f, pid=pid: self.llm_update_callback(f, pid))
-        elif update_type == "other":
-            self.get_logger().info("HERE IN LLM UPDATE !!!!!!")
-            # Tell everyone else what the focus person has said.
-            # Make and array for checking response to this;
-            # when responses are back from ALL lllm clients, then we can set 
-            # last_text_completed flag to be True.
-            self.llm_other_update_completed = {}
-            for pid in (p for p in self.group_members if p != person_id):
-                self.llm_other_update_completed[pid] = False
-                request = LlmUpdateRequest.Request()
-                request.type = "other"
-                request.person_id = person_id
-                request.group_id = self.group_id
-                request.group_members = self.group_members
-                request.text = text
-                future = self.llm_update_request_clients[pid].call_async(request)
-                future.add_done_callback(lambda f, pid=pid, update_type="other": self.llm_update_callback(f, pid, update_type))
-            # Still set the self.last_text_completed flat to True if there was noone to send an update to
-            if len(self.llm_other_update_completed) == 0:
-                self.last_text_completed = True
-
-    def llm_update_callback(self, future: Future, person_id, update_type=""):
-        """
-        Callback for the future, that will be called when the request is done.
-        """
-        response = future.result()
-        if response.completed == True:
-            if update_type == "other":
-                self.llm_other_update_completed[person_id] = True
-            self.get_logger().info(f"Llm update for person {person_id} completed.")
-        else:
-            self.get_logger().info(f"Llm update  for person {person_id} not completed.")
-        if update_type == "other" and all(self.llm_other_update_completed.values()) == True:
-            self.last_text_completed = True # last text received AND all other LLMs in group updated about it.
-
-    def llm_rewind(self, joined, person_id, leave=1):
-        """
-        Extract gpt_message_ids for each new instance of a person_id in self.speak_list.
-        Publish a message to delete these gpt messages.
-        Ask the RelationshipManagr to rewind to the last spoken tick.
-        If someone joins, we rewind but leave the next two items
-        If someone leaves, we rewind to but leave two UNLESS the person who left is in those two,
-        in which case we rewind until the person who left is no longer in the list.
-
-        :param joined: True if someone has joined the group, False if someone has left the group.
-        :param person_id: The person who left or joined.
-        :param leave: The number of messages to leave in the speak list, whilst the rest are deleted.
-        """
-        # Only do anything if there are some unpublished messages in speak_list
-        if len(self.speak_list) > 0:
-            self.get_logger().info('Removing unspoken messages in speak list.')
-
-            if joined == True:
-                # If someone has joined, rewind all but last one message in self.speak_list
-                to_delete = self.speak_list[leave:]
-                self.speak_list = self.speak_list[:leave]
-            else:
-                # If someone has left, rewind but leave one UNLESS person who left is in that one, then rewind further
-                to_delete = self.speak_list
-                new_speak_list = []
-                for item in self.speak_list[:leave]:
-                    if item['person_id'] != person_id: # if person to speak is NOT the one who has just left, add to new_speak_list
-                        new_speak_list.append(item)
-                        del to_delete[0]
-                    else:
-                        break # stop building the new_speak_list
-                self.speak_list = new_speak_list
-                if len(self.speak_list) == 0:
-                    self.left_member_flag = True # So that someone will say 'goodbye' to fill the space.
-                
-            self.get_logger().info('Just reduced speak_list')
-            
-            # Collect unique person_id entries from the right side of the list, for deletion
-            unique_person_ids = set()  # To store the unique person_ids
-            to_rewind = []  # To store the results (person_id and gpt_message_id)
-
-            for entry in to_delete:
-                person_id = entry['person_id']
-                if person_id not in unique_person_ids and entry['gpt_message_id'] != "":
-                    # If it's a new person_id, save the person_id and gpt_message_id
-                    unique_person_ids.add(person_id)
-                    to_rewind.append({
-                        'person_id': person_id,
-                        'gpt_message_id': entry['gpt_message_id']
-                    })
-
-            # Request an llm rewind for each item in to_rewind list
-            # TODO this does not work perfectly because it only rewinds to the last
-            # time that a specific person spoke, doesn't rewind ALL messages including the
-            # ones given to it where someone else has spoken !
-            self.get_logger().info('Sending an llm rewind request for each item in result list.')
-            for item in to_rewind:
-                request = LlmRewindRequest.Request()
-                pid = item['person_id']
-                request.person_id = pid
-                request.group_id = self.group_id
-                request.gpt_message_id = item['gpt_message_id']
-                future = self.llm_rewind_request_clients[item['person_id']].call_async(request)
-                future.add_done_callback(lambda f, pid=pid: self.llm_rewind_callback(f, pid))
-
-    def llm_rewind_callback(self, future: Future, person_id):
-        """
-        Callback for the future, that will be called when the request is done.
-        """
-        response = future.result()
-        if response.completed == True:
-            self.get_logger().info(f"Llm rewind for person {person_id} completed.")
-        else:
-            self.get_logger().info(f"Llm rewind for person {person_id} not completed.")
                     
     def llm_text(
             self, 
             person_id, 
             pi_id,
             directed_id, 
+            last_message,
+            last_speaker_id,
             event_id, 
             message_type, 
             question_id, 
@@ -401,6 +214,8 @@ class GroupNode(Node):
         request.group_id = self.group_id
         request.message_type = message_type
         request.directed_id = directed_id
+        request.last_message = last_message
+        request.last_speaker_id = last_speaker_id
         request.question_id = question_id
         request.question_phase = question_phase
         request.event_id = event_id
@@ -410,6 +225,8 @@ class GroupNode(Node):
                                  person_id=person_id, 
                                  pi_id=pi_id, 
                                  message_type=message_type, 
+                                 last_message=last_message,
+                                 last_speaker_id=last_speaker_id,
                                  directed_id=directed_id, 
                                  question_id=question_id,
                                  mention_question=mention_question))
@@ -420,6 +237,8 @@ class GroupNode(Node):
             person_id,
             pi_id, 
             message_type,
+            last_message,
+            last_speaker_id,
             directed_id, 
             question_id, 
             mention_question
@@ -436,12 +255,13 @@ class GroupNode(Node):
                 'group_id' : self.group_id,
                 'message_type' : message_type,
                 'directed_id' : directed_id,
+                'last_message' : last_message,
+                'last_speaker_id' : last_speaker_id,
                 'question_id' : question_id,
                 'mention_question' : mention_question,
                 'text' : response.text,
                 'gpt_message_id' : response.gpt_message_id
             })
-            self.llm_update("other", person_id, response.text)
         elif self.helper.get_question_phase() == config.CHAOS_QUESTION_PHASE:
             self.chaos_speak_list[pi_id].append({
                 'person_id' : person_id,
@@ -449,16 +269,20 @@ class GroupNode(Node):
                 'group_id' : self.group_id,
                 'message_type' : message_type,
                 'directed_id' : directed_id,
+                'last_message' : last_message,
+                'last_speaker_id' : last_speaker_id,
                 'question_id' : question_id,
                 'mention_question' : mention_question,
                 'text' : response.text,
                 'gpt_message_id' : response.gpt_message_id
             })
+            
+        self.last_text_completed = True # TODO need like an array of last_text_completed for the chaos phase !!!
 
         if response.completed == True:
             self.get_logger().info(f"Llm text for person {person_id} completed successfully.")
         else:
-            self.get_logger().info(f"Llm text for person {person_id} not completed successfully.")
+            self.get_logger().error(f"Llm text for person {person_id} not completed successfully.")
 
     def pi_speech_callback(self, future: Future, person_id, gpt_message_id):
         """
@@ -521,10 +345,9 @@ class GroupNode(Node):
                 future.add_done_callback(partial(self.pi_speech_callback,
                                         person_id=speaker,
                                         gpt_message_id=""))
-
             # Check if new speech required (if last person's speech has been spoken).
             # Send a request to the Pi to SPEAK.
-            elif len(self.speak_list) != 0 and self.last_speech_completed == True:
+            elif len(self.speak_list) == 1 and self.last_speech_completed == True:
                 self.get_logger().info('Publishing standard speech')
                 # Use the FIRST item in speak_list.
                 text_dict = self.speak_list.pop(0)
@@ -558,24 +381,17 @@ class GroupNode(Node):
                                         gpt_message_id=text_dict['gpt_message_id']))
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
+            elif len(self.speak_list) == 2:
+                self.get_logger().error("Speak list has len of two but it should not!")
+            else:
+                self.get_logger().info("Nothing to speak right now.")
 
-            # Backlog of things in to_speak list + text requests not replied to yet.
-            speak_backlog = self.text_requests - len(self.spoken_list)
-
-            if len(self.group_members) > 0 and speak_backlog < config.MAX_SPEAK_BACKLOG_LEN and self.last_text_completed == True:
+            if len(self.group_members) > 0 and self.last_text_completed == True and len(self.speak_list) == 0:
                 self.get_logger().info("Requesting text")
-                self.get_logger().info(f"Length of speak list: {str(len(self.speak_list))}")
-                if len(self.speak_list) != 0:
-                    # Get last_speaker, second_last_speaker, and last_message_directed from speech list
-                    last_item = self.speak_list[-1]  # Get the last item in the list
-                    if len(self.speak_list) > 1:
-                        second_last_item = self.speak_list[-2]
-                    else:
-                        second_last_item = None
-                elif len(self.spoken_list) != 0:
+                if len(self.spoken_list) != 0:
                     self.get_logger().info(f"Spoken list: {str(self.spoken_list)}")
-                    # Group has reset in some way - get from spoken list.
                     last_item = self.spoken_list[-1]  # Get the last item in the list
+                    last_message = self.spoken_list[-1]['text'] # Get last message
                     if len(self.spoken_list) > 1:
                         second_last_item = self.spoken_list[-2]
                     else:
@@ -583,11 +399,14 @@ class GroupNode(Node):
                 else:
                     last_item = None
                     second_last_item = None
-                person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
+                    last_message = ""
+                last_speaker_id, person_id, message_type, directed_id, event_id, question_id, question_phase = self.group_convo_manager.get_next(
                     self.group_members, 
                     last_item,
                     second_last_item
                 )
+                self.get_logger().info("last_speaker_id")
+                self.get_logger().info(str(last_speaker_id))
                 if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
                     mention_question = self.check_last_question_mention(person_id)
                 else:
@@ -597,13 +416,14 @@ class GroupNode(Node):
                     person_id, 
                     self.person_pi_dict[person_id],
                     directed_id, 
+                    last_message, # last_message is the most recent thing that was said in the group.
+                    last_speaker_id,
                     event_id, 
                     message_type, 
                     question_id, 
                     question_phase, 
                     mention_question
                 )
-                self.text_requests += 1
 
         elif question_phase >= config.CHAOS_QUESTION_PHASE:
 
@@ -655,6 +475,8 @@ class GroupNode(Node):
                                 person_id = person_id, 
                                 pi_id = pi,
                                 directed_id = 0, 
+                                last_message = "",
+                                last_speaker_id=0,
                                 event_id = 0, 
                                 message_type = MessageType.OPEN.value, 
                                 question_id = person_id, 

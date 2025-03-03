@@ -75,18 +75,6 @@ class PersonNode(Node):
             self.llm_text_request_callback,
             callback_group=callback_group
         )
-        self.srv = self.create_service(
-            LlmRewindRequest, 
-            f'llm_rewind_request_{self.person_id}', 
-            self.llm_rewind_request_callback,
-            callback_group=callback_group
-        )
-        self.srv = self.create_service(
-            LlmUpdateRequest, 
-            f'llm_update_request_{self.person_id}', 
-            self.llm_update_request_callback,
-            callback_group=callback_group
-        )
 
     def llm_text_request_callback(self, request, response):
         """
@@ -97,6 +85,8 @@ class PersonNode(Node):
             request.message_type, 
             request.directed_id, 
             request.event_id, 
+            request.last_message,
+            request.last_speaker_id,
             request.question_id,
             request.question_phase,
             request.mention_question
@@ -116,44 +106,6 @@ class PersonNode(Node):
         response.gpt_message_id = gpt_message_id
         response.completed = True
 
-        return response
-    
-    def llm_rewind_request_callback(self, request, response):
-        """
-        Delete messages on the GPT thread including and after 
-        the message with the ID in the given ROS request.
-        """
-        self.get_logger().info('In llm_rewind_request_callback')
-        response.completed = self.person.delete_messages_from_id(request.gpt_message_id)
-    
-        if response.completed:
-            self.get_logger().info("Successfully deleted unspoken gpt messages.")
-        else:
-            self.get_logger().warn("Failed to delete unspoken gpt messages. Check message ID or system state.")
-
-        return response
-    
-    def llm_update_request_callback(self, request, response):
-        """
-        Looks at incoming person_text_result data and tells the GPT about it if 
-        this person is in the group (but they are not the speaker).
-        """
-        self.get_logger().info('In llm_update_request_callback')
-        if request.type == "left": # Another person left the group.
-            self.person.member_left_group(request.person_id)
-        elif request.type == "joined": # Another person joined the group.
-            self.person.member_joined_group(request.person_id)
-        elif request.type == "new": # This person has been moved to another group.
-            self.person.new_group(request.group_id, request.group_members)
-        elif request.type == "other": # Another person in the group has said something.
-            self.person.other_member_text(
-                request.person_id, 
-                request.group_id, 
-                request.group_members, # This is everyone in the group EXCLUDING the speaker
-                request.text
-            )
-        response.completed = True
-        
         return response
 
     

@@ -70,19 +70,19 @@ class GroupConvoManager():
         """
 
         if last_item != None:
-            last_speaker = last_item['person_id'] if last_item['person_id'] != 0 else None # Who spoke most recently
-            last_message_directed = last_item['directed_id'] if last_item['directed_id'] != 0 else None # Who the last message was directed at, if anyone.
-            last_question_id = last_item['question_id'] if last_item['question_id'] != 0 else None # The ID of the person whose question is currently being discussed.
-            last_message_type = last_item['message_type']  if last_item['message_type'] != 0 else None # The message type of the most recent message (int)
+            last_speaker = last_item['person_id'] if last_item['person_id'] != 0 else 0 # Who spoke most recently
+            last_message_directed = last_item['directed_id'] if last_item['directed_id'] != 0 else 0 # Who the last message was directed at, if anyone.
+            last_question_id = last_item['question_id'] if last_item['question_id'] != 0 else 0 # The ID of the person whose question is currently being discussed.
+            last_message_type = last_item['message_type']  if last_item['message_type'] != 0 else 0 # The message type of the most recent message (int)
         else:
-            last_speaker = None
-            last_message_directed = None
-            last_question_id = None
-            last_message_type = None
+            last_speaker = 0
+            last_message_directed = 0
+            last_question_id = 0
+            last_message_type = 0
         if second_last_item != None:
             second_last_speaker = last_item['person_id']
         else:
-            second_last_speaker = None
+            second_last_speaker = 0
 
         # directed_id is 0 (noone) by default (message not directed at anyone)
         directed_id = 0
@@ -201,6 +201,6 @@ class GroupConvoManager():
             message_type = MessageType.SWITCH.value
             question_id = next_speaker
 
-        return next_speaker, message_type, directed_id, event_id, question_id, question_phase
+        return last_speaker, next_speaker, message_type, directed_id, event_id, question_id, question_phase
 
             

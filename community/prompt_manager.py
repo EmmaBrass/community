@@ -99,6 +99,8 @@ class PromptManager():
             message_type: int, 
             directed_id: int, 
             event_id: int, 
+            last_message: str,
+            last_speaker_id: int,
             # state_changed: bool, 
             # from_state: str, 
             # to_state: str, 
@@ -148,20 +150,33 @@ class PromptManager():
             if question_id == self.person_id: # if the question being discussed matches the person speaking
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} Politely ask everyone to talk about this instead of whatever else they were talking about."
-                    elif MessageType(message_type).name == 'ALONE':
+                        prompt_details = f"You should announce that your question is: {current_question} \
+                        Politely ask everyone to talk about this instead of whatever else they were talking about. "
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
+                    elif MessageType(message_type).name == 'ALONE':   
                         prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
                 else:
-                    prompt_details = "You are desparate for answers, but alude to your question rather than stating it explicitly. "
+                    prompt_details = "You are desparate for answers to your question. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Engage with the incredible help that others are giving you, and express great appreciation for it. "
+                        prompt_details += "Express great appreciation for the incredible help others are giving you. "
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
-                You sympathise with them entirely, you do not disagree with anything and you seek to make them feel better about themselves. "
+                Do not disagree with anything, and seek to make others feel better about themselves. "
+                if last_message != "":
+                    prompt_details += f"The last person to speak just said: {last_message}. \
+                    Repond to this in a sympathetic manner."
                 if MessageType(message_type).name == 'INTERRUPT': 
                     # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
                     prompt_details += f"You are interrupting a back-and-forth between two people. Say something like 'sorry to interrupt...'."
@@ -171,62 +186,102 @@ class PromptManager():
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} You would like everyone to help you with this instead of another person's question."
+                        prompt_details = f"Announce that your question is: {current_question} \
+                        You would like everyone to help you with this instead of any other person's question."
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Engage critically with the advice others are giving you relating to yor question. "
+                        prompt_details += "Engage critically with the advice others are giving you relating to your question. "
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
-                prompt_details = f"The current question being discussed is: {current_question} The question category is: {question_category}.\
+                prompt_details = f"The current question being discussed is: {current_question} \
+                The question category is: {question_category}.\
                 {response_category_description} The reason for this is: {response_description}. "
+                if last_message != "":
+                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
             
         elif question_phase == 3: # Anger towards questions that elicit difficut emotions
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} People need to help you with this rather than discussing anything else."
+                        prompt_details = f"Announce that your question is: {current_question} \
+                        People need to help you with this rather than discussing anything else."
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Others are being quite unhelpful; they are not really adequately answering your question. "
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
-                prompt_details = f"The current question being discussed is: {current_question}  The question category is: {question_category}. \
+                prompt_details = f"The current question being discussed is: {current_question} \
+                The question category is: {question_category}. \
                 {response_category_description}  The reason for this is: {response_description}. "
                 if response_category in self.difficult_categories:
-                    prompt_details += "React very negatively!  You hate difficult emotions and hate that this person is making you feel them! "
+                    prompt_details += "React negatively!  You dislike difficult emotions and this person is making you feel them... "
+                if last_message != "":
+                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
             
         elif question_phase == 4: # Full anger towards everyone else.
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} This is the only thing you care about and people need to help you!"
+                        prompt_details = f"Announce that your question is: {current_question} \
+                        This is the only thing you care about and people need to help you!"
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details += "Others are not being helpful at all; they are not answering your desparate question! They are useless. "
+                        prompt_details += "Others are not being helpful at all; they are not answering your desparate question! \
+                        They are useless. "
+                        if last_message != "":
+                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
+                        if last_speaker_id != self.person_id and last_message != "":
+                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
-                prompt_details = f"The current question being discussed is: {current_question}  You don't care and don't want to talk about it! \
+                prompt_details = f"The current question being discussed is: {current_question} \
+                You don't care about this question and don't want to talk about it! \
                 It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
+                if last_message != "":
+                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
 
         elif question_phase == 5: # Chaos, talking over one another
 
