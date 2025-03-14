@@ -87,6 +87,14 @@ class HelperFunctions():
             print("Error! Voice_id not found for this person_id")
         return str(voice_id)
     
+    def get_name(self, person_id):
+        person_data = self.people_data.get(person_id, {})
+        name = person_data.get('name', None)
+        print(f"Voice ID is: {name}")
+        if name == None:
+            print("Error! nName not found for this person_id")
+        return str(name)
+
     def get_color(self, person_id):
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.people_data.get(person_id, {})

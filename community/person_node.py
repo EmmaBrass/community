@@ -37,7 +37,7 @@ class PersonNode(Node):
         # Now initialize the person object using person attributes from config yaml file
         person_data = self.helper.people_data.get(self.person_id, {})
         # Get voice id
-        self.voice_id = str(person_data.get('voice_id', None))
+        self.voice_id = str(person_data.get('voice_id', None)) # TODO use helper functions here...
         self.get_logger().info(f"Voice ID is: {self.voice_id}")
         if self.voice_id == None:
             self.get_logger().info("Error! Voice_id not found for this person_id")
@@ -53,14 +53,11 @@ class PersonNode(Node):
             gender = person_data.get('gender', "Person not found."),
             age = person_data.get('age', "Person not found."),
             question = person_data.get('question', "Person not found."),
-            history = person_data.get('history', "Person not found."),
-            relationships = person_data.get('relationships', "Person not found."),
-            personality = person_data.get('relationships', "Person not found.")
+            question_detail = person_data.get('question_detail', "Person not found.")
         )
 
         self.group_id = None # will change
         self.pi_id = None # will change
-        self.group_members = [] # People in the group EXCLUDING this person
 
         # Initialise prompt manager
         self.prompt_manager = PromptManager(self.person_id)
@@ -93,10 +90,9 @@ class PersonNode(Node):
         )
         self.get_logger().info('Output prompt_details:')
         self.get_logger().info(str(prompt_details))
-        text, gpt_message_id = self.person.person_speaks( # TODO get group_members from requst instead ?
+        text, gpt_message_id = self.person.person_speaks(
             self.person_id,
             self.group_id,
-            self.group_members, # Members of the group EXCLUDING the person who will talk.
             prompt_details
         )
         self.get_logger().info('GPT request complete')

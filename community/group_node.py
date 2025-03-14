@@ -23,6 +23,7 @@ from pydub.generators import WhiteNoise, Sine
 
 from community.group_convo_manager import GroupConvoManager
 from community.helper_functions import HelperFunctions
+from community.configuration import PEOPLE_TO_USE
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -41,7 +42,7 @@ class GroupNode(Node):
         self.helper = HelperFunctions()
 
         # Initialise GroupConvoManager object
-        self.group_convo_manager = GroupConvoManager()
+        self.group_convo_manager = GroupConvoManager(self.group_id)  
 
         # The number of pis in this group
         self.num_pis = len(config.GROUP_PI_ASSIGNMENTS.get(self.group_id).get('pi_ids'))
@@ -96,11 +97,11 @@ class GroupNode(Node):
             callback_group=group_info_callback_group
         )
 
-        # Dictionaries to store service clients, and callback groups
+        # Dictionaries to store person llm service clients, and callback groups
         self.llm_text_request_clients = {}
         self.llm_callback_groups = {}
-        # Create a service client and callback group for all person_ids
-        for person_id, _ in self.helper.people_data.items():
+        # Create a service client and callback group for all person_ids to use
+        for person_id in PEOPLE_TO_USE:
             # Unique service name per Person
             llm_text_service_name = f'llm_text_request_{person_id}' 
             # Create a separate MutuallyExclusiveCallbackGroup for each client
@@ -119,7 +120,7 @@ class GroupNode(Node):
 
         # Initialise service clients
 
-        # Dictionaries to store service clients, and one callback group for all
+        # Dictionaries to store pi service clients, and one callback group for all
         self.pi_speech_request_clients = {}
         self.pi_service_status = {pi_id: False for pi_id in self.pi_ids}
         self.pi_speech_request_callback_group = MutuallyExclusiveCallbackGroup()
@@ -276,7 +277,7 @@ class GroupNode(Node):
                 'text' : response.text,
                 'gpt_message_id' : response.gpt_message_id
             })
-            
+
         self.last_text_completed = True # TODO need like an array of last_text_completed for the chaos phase !!!
 
         if response.completed == True:
@@ -384,14 +385,17 @@ class GroupNode(Node):
             elif len(self.speak_list) == 2:
                 self.get_logger().error("Speak list has len of two but it should not!")
             else:
-                self.get_logger().info("Nothing to speak right now.")
+                self.get_logger().debug("Nothing to speak right now.")
 
             if len(self.group_members) > 0 and self.last_text_completed == True and len(self.speak_list) == 0:
                 self.get_logger().info("Requesting text")
                 if len(self.spoken_list) != 0:
-                    self.get_logger().info(f"Spoken list: {str(self.spoken_list)}")
+                    self.get_logger().info(f"Last 2 items in spoken list: {str(self.spoken_list[-2:])}")
                     last_item = self.spoken_list[-1]  # Get the last item in the list
-                    last_message = self.spoken_list[-1]['text'] # Get last message
+                    if self.spoken_list[-1]['person_id'] not in self.group_members:
+                        last_message = "" # Don't use the last message if that person has left the group!
+                    else:
+                        last_message = self.spoken_list[-1]['text'] # Get last message
                     if len(self.spoken_list) > 1:
                         second_last_item = self.spoken_list[-2]
                     else:
@@ -407,6 +411,21 @@ class GroupNode(Node):
                 )
                 self.get_logger().info("last_speaker_id")
                 self.get_logger().info(str(last_speaker_id))
+                self.get_logger().info("person_id (person to speak next)")
+                self.get_logger().info(str(person_id))
+                self.get_logger().info("Name of person to speak next")
+                self.get_logger().info(str(self.helper.get_name(person_id)))
+                self.get_logger().info("message_type")
+                self.get_logger().info(str(MessageType(message_type).name))
+                self.get_logger().info("directed_id")
+                self.get_logger().info(str(directed_id))
+                self.get_logger().info("event_id")
+                self.get_logger().info(str(event_id))
+                self.get_logger().info("question_id")
+                self.get_logger().info(str(question_id))
+                self.get_logger().info("question_phase")
+                self.get_logger().info(str(question_phase))
+
                 if message_type == MessageType.SWITCH.value or message_type == MessageType.ALONE.value:
                     mention_question = self.check_last_question_mention(person_id)
                 else:
@@ -519,7 +538,7 @@ class GroupNode(Node):
                         person_id = self.pi_person_dict[pi]
                         request = PiSpeechRequest.Request()
                         request.person_id = person_id
-                        request.pi_id = self.person_pi_dict[speaker]
+                        request.pi_id = self.person_pi_dict[person_id]
                         request.group_id = self.group_id
                         request.voice_id = self.helper.get_voice_id(person_id)
                         request.color = self.helper.get_color(person_id)
@@ -530,7 +549,7 @@ class GroupNode(Node):
                         request.question_id = 0
                         request.mention_question = False
                         request.audio_data = self.generate_static_sounds(output_dir=self.static_output_directory, duration=6)
-                        future = self.pi_speech_request_clients[speaker].call_async(request)
+                        future = self.pi_speech_request_clients[person_id].call_async(request)
                         future.add_done_callback(partial(self.pi_speech_callback,
                                                 person_id=person_id,
                                                 gpt_message_id=""))

@@ -28,6 +28,8 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from piper.voice import PiperVoice
 import random, os, yaml, wave
 
+from community.configuration import PEOPLE_TO_USE
+
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -53,15 +55,15 @@ class GroupAssignmentNode(Node):
             self.pi_person_assignments.append({'group_id': group_id, 'members': members})
         self.get_logger().info(str(self.pi_person_assignments))
 
-        # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow?
-        self.hello_list = ['Hello there! What a nice day it is.', 
-                           'Hello good people of the world.', 
-                           'Hey, glad to be here with you.', 
-                           'Hey, it is nice to be here, I would not want to be anywhere else.', 
-                           'Hello there. It is great to be here with you!', 
-                           'Hi, looking forward to talking to you about interesting things.',
-                           'Howdy folks, I am so excited to have joined this group.', 
-                           'I am so happy to be here in this group, I cannot wait.'
+        # Quick'n'easy ways to say hello when joining a group TODO more customisation of this somehow? -> with their own name.
+        self.hello_list = ['Hello there! What a nice day it is. I am ', 
+                           'Hello good people of the world. My name is ', 
+                           'Hey, glad to be here with you. My name is ', 
+                           'Hey, it is nice to be here, I would not want to be anywhere else. I am ', 
+                           'Hello there. It is great to be here with you! My name is ', 
+                           'Hi, looking forward to talking to you about interesting things. I am called ',
+                           'Howdy folks, I am so excited to have joined this group. My name is ', 
+                           'I am so happy to be here in this group, I cannot wait. I am '
                            ]
         
         # Create callback groups
@@ -132,15 +134,30 @@ class GroupAssignmentNode(Node):
                 self.get_logger().warning(f'Service {service_name} is offline!')
 
     def check_pi_services(self):
-        """Check if the Pi services are available and update status."""
+        """
+        Check if the Pi services are available and update status.
+        Reset the assigned person_id to 0 if the pi goes offline or comes online.
+        """
         for pi_id, client in self.pi_speech_request_clients.items():
             if client.service_is_ready():
                 if not self.pi_service_status[pi_id]:
                     self.get_logger().info(f'Service pi_speech_request_{pi_id} is now available!')
+                    # Reset the assigned person_id to 0 for this pi
+                    for group in self.pi_person_assignments:
+                        for member in group['members']:
+                            # Check if the current member has the specified pi_id
+                            if member['pi_id'] == pi_id:
+                                member['person_id'] = 0
                 self.pi_service_status[pi_id] = True
             else:
                 if self.pi_service_status[pi_id]:
                     self.get_logger().warning(f'Service pi_speech_request_{pi_id} went offline!')
+                    # Reset the assigned person_id to 0 for this pi
+                    for group in self.pi_person_assignments:
+                        for member in group['members']:
+                            # Check if the current member has the specified pi_id
+                            if member['pi_id'] == pi_id:
+                                member['person_id'] = 0
                 self.pi_service_status[pi_id] = False
 
     def pi_person_updates_callback(self, msg):
@@ -158,15 +175,19 @@ class GroupAssignmentNode(Node):
             for member in group['members']:
                 # Check if the current member has the specified pi_id
                 if member['pi_id'] == msg.pi_id:
-                    if member['person_id'] != msg.person_id:
+                    if member['person_id'] != msg.person_id: # TODO needs to still work if pi restarted!
+                        if msg.person_id not in PEOPLE_TO_USE:
+                            self.get_logger().error("RFID is not in list of people to use!")
+                            return False
                         member['person_id'] = msg.person_id
                         self.get_logger().info("new_person_id")
                         self.get_logger().info(str(msg.person_id))
                         if msg.person_id != 0:
                             voice_id = self.helper.get_voice_id(msg.person_id)
                             color = self.helper.get_color(msg.person_id)
+                            name = self.helper.get_name(msg.person_id)
                             # Convert text to .wav audio file bytes.
-                            text = random.choice(self.hello_list)
+                            text = random.choice(self.hello_list) + str(name)
                             self.get_logger().info(f"Text-to-speech input: text={text}, voice_id={voice_id}")
                             audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
                             if not all(isinstance(b, int) and 0 <= b <= 255 for b in audio_uint8):

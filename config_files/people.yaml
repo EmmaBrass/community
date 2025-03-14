@@ -28,9 +28,9 @@
 # nervousness
 
 people:
-  6024224946:
+  138168103177:
     name: "Henry Case"
-    voice_id: "en_GB-alan-medium.onnx"
+    voice_id: "ar_JO-kareem-medium.onnx"
     gender: "male"
     age: 29
     color: [200,100,100] # In RGB
@@ -93,7 +93,7 @@ people:
           You mock the idea of blind faith, preferring the certainty of systems and logic. 
           To you, belief in the divine is just a comforting lie."
 
-  117227880:
+  106170103177:
     name: "Johannes Fischer"
     voice_id: "en_US-arctic-medium.onnx"
     gender: "male"
@@ -159,9 +159,9 @@ people:
           You wonder if moral clarity is even possible in a world so full of contradictions.  
           You fear that questioning your own beliefs might mean letting others down."
 
-  1886024346:
+  25023320963:
     name: "Sophie Taylor"
-    voice_id: "en_GB-aru-medium.onnx"
+    voice_id: "en_GB-semaine-medium.onnx"
     gender: "female"
     age: 7
     color: [128, 0, 128] # Purple, her favorite color
@@ -225,7 +225,7 @@ people:
           Sometimes people talk about it at school or church, but I do not really get it.  
           Maybe it is just something I will understand better later!"
 
-  4:
+  12213083177:
     name: "Jessica Rust"
     voice_id: "en_GB-alba-medium.onnx"
     gender: "female"
@@ -292,7 +292,7 @@ people:
           For you, the beauty of nature feels like enough proof of something greater.  
           You wonder if others see the divine in the same quiet way you do."
 
-  5:
+  59837161:
     name: "Steve Carllec"
     voice_id: "en_GB-northern_english_male-medium.onnx"
     gender: "male"
@@ -356,9 +356,9 @@ people:
         Money is the only god that you think is worth worshipping.
         Those who turn to religion are weak minded and have a loose grip on reality."
 
-  6:
+  4251101621818144:
     name: "Liam Brooks"
-    voice_id: "en_US-bryce-medium.onnx" # NOT WORKING
+    voice_id: "en_GB-alan-medium.onnx"
     gender: "male"
     age: 16
     color: [255, 69, 0] # A fiery orange-red to reflect his intense emotions
@@ -424,7 +424,7 @@ people:
 
   7:
     name: "Marcus Steele"
-    voice_id: "en_US-hfc_male-medium.onnx" # NOT WORKING
+    voice_id: "vasco.onnx"
     gender: "male"
     age: 42
     color: [128, 0, 128] # A bold purple, reflecting confidence and individuality
@@ -755,7 +755,7 @@ people:
 
   12:
     name: "Daniel Carter"
-    voice_id: "en_US-l2arctic-medium.onnx" # NOT WORKING
+    voice_id: "en_GB_jarvis-medium.onnx"
     gender: "male"
     age: 32
     color: [0, 76, 153] # A deep blue, reflecting professionalism and ambition
@@ -822,7 +822,7 @@ people:
 
   13:
     name: "Laura Bennett"
-    voice_id: "en_GB-semaine-medium.onnx"
+    voice_id: "en_GB-aru-medium.onnx"
     gender: "female"
     age: 51
     color: [178, 102, 255] # A deep lavender, symbolizing change and wisdom

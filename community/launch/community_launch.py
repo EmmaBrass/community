@@ -1,66 +1,63 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from community.configuration import GROUP_PI_ASSIGNMENTS
+from community.configuration import PEOPLE_TO_USE
+import os, yaml
 
-# TODO automate creation of this launch file from configuration.py and people.yaml
+# Define the path to the YAML file
+print(os.path.dirname(__file__))
+PEOPLE_CONFIG_PATH = "/home/emma/community_ws/src/community/config_files/people.yaml"
+
+log_level = "INFO"
+
+def load_people():
+    """Loads people data from the YAML file."""
+    with open(PEOPLE_CONFIG_PATH, 'r') as file:
+        data = yaml.safe_load(file)
+    return data.get('people', {})  # Returns dictionary of people
 
 def generate_launch_description():
-    return LaunchDescription([
-
+    nodes = [
         Node(
             package='community',
             executable='group_assignment_node',
             name='group_assignment_node',
             parameters=[
-                {'log_level': 'INFO'}
+                {'log_level': log_level}
             ],
-            arguments=['--ros-args', '--log-level', 'INFO']
-        ),
+            arguments=['--ros-args', '--log-level', log_level]
+        )
+    ]
 
-        # Group Node 1
-        Node(
-            package='community',
-            executable='group_node',
-            name='group_node_1',
-            parameters=[
-                {'group_id': 1},
-                {'log_level': 'INFO'}
-            ],
-            arguments=['--ros-args', '--log-level', 'INFO']
-        ),
+    # Dynamically create group_nodes based on GROUP_PI_ASSIGNMENTS
+    for group_id, group_info in GROUP_PI_ASSIGNMENTS.items():
+        nodes.append(
+            Node(
+                package='community',
+                executable='group_node',
+                name=f'group_node_{group_id}',
+                output='screen',
+                parameters=[
+                    {'group_id': group_id},
+                    {'log_level': log_level}
+                ],
+                arguments=['--ros-args', '--log-level', log_level]
+            )
+        )
 
-         # Person Node 1
-        Node(
-            package='community', 
-            executable='person_node',
-            name='person_node_1',
-            output='screen',
-            parameters=[
-                {'log_level': 'INFO'},
-                {'person_id': 6024224946}
-            ]
-        ),
-        # Person Node 2
-        Node(
-            package='community', 
-            executable='person_node',
-            name='person_node_2',
-            output='screen',
-            parameters=[
-                {'log_level': 'INFO'},
-                {'person_id': 117227880}
-            ]
-        ),
-        # Person Node 3
-        Node(
-            package='community',
-            executable='person_node',
-            name='person_node_3',
-            output='screen',
-            parameters=[
-                {'log_level': 'INFO'},
-                {'person_id': 1886024346}
-            ]
-        ),
-    ])
+    # Dynamically create Person Nodes
+    for person_id in PEOPLE_TO_USE:
+        nodes.append(
+            Node(
+                package='community',
+                executable='person_node',
+                name=f'person_node_{person_id}',
+                output='screen',
+                parameters=[
+                    {'log_level': log_level},
+                    {'person_id': int(person_id)}
+                ]
+            )
+        )
+
+    return LaunchDescription(nodes)

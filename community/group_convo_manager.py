@@ -1,10 +1,12 @@
 import community.configuration as config
 from community.message_type import MessageType
 from community.helper_functions import HelperFunctions
+import rclpy
+import rclpy.logging
 
 from ament_index_python.packages import get_package_share_directory
 
-import random, time, os, yaml
+import random, time
 
 class GroupConvoManager():
     """
@@ -13,7 +15,7 @@ class GroupConvoManager():
 
     # Will need to set it so that if that group member leaves then we move away from their question
 
-    def __init__(self):
+    def __init__(self, group_id):
         # Keep track of how long a convo has been back and forth between two people
         self.back_and_forth_counter = 0
         
@@ -25,6 +27,8 @@ class GroupConvoManager():
 
         # Flag just to ensure FIRST ever thing spoken in a group is a new question
         self.first_question_flag = True
+
+        self.logger = rclpy.logging.get_logger(f"GroupConvoManager_{group_id}_logger")
 
     # Function to convert hours, minutes, and seconds to total seconds
     def convert_to_seconds(self, timestamp):
@@ -70,17 +74,17 @@ class GroupConvoManager():
         """
 
         if last_item != None:
-            last_speaker = last_item['person_id'] if last_item['person_id'] != 0 else 0 # Who spoke most recently
-            last_message_directed = last_item['directed_id'] if last_item['directed_id'] != 0 else 0 # Who the last message was directed at, if anyone.
-            last_question_id = last_item['question_id'] if last_item['question_id'] != 0 else 0 # The ID of the person whose question is currently being discussed.
-            last_message_type = last_item['message_type']  if last_item['message_type'] != 0 else 0 # The message type of the most recent message (int)
+            last_speaker = last_item['person_id'] # Who spoke most recently
+            last_message_directed = last_item['directed_id'] # Who the last message was directed at, if anyone.
+            last_question_id = last_item['question_id'] # The ID of the person whose question is currently being discussed.
+            last_message_type = last_item['message_type'] # The message type of the most recent message (int)
         else:
             last_speaker = 0
             last_message_directed = 0
             last_question_id = 0
             last_message_type = 0
         if second_last_item != None:
-            second_last_speaker = last_item['person_id']
+            second_last_speaker = second_last_item['person_id']
         else:
             second_last_speaker = 0
 
@@ -135,7 +139,7 @@ class GroupConvoManager():
 
         elif len(group_members) > 2:
             interrupt_check = random.randint(0,100)
-            if last_speaker == None:
+            if last_speaker == 0:
                 # Noone has spoken yet - startup of the system
                 # Just choose someone random from existing members
                 next_speaker = random.choice(group_members)
@@ -149,7 +153,8 @@ class GroupConvoManager():
                         question_id = next_speaker
                     else:
                         message_type = MessageType.OPEN.value
-            elif last_message_directed != None and self.back_and_forth_counter < config.BACK_AND_FORTH_MAX and interrupt_check > config.INTERRUPT_PERCENT:
+            elif last_message_directed != 0 and self.back_and_forth_counter < config.BACK_AND_FORTH_MAX and \
+                (interrupt_check > config.INTERRUPT_PERCENT or (interrupt_check <= config.INTERRUPT_PERCENT and self.back_and_forth_counter < 3)):
                 # Last message was directed, and next one will be too
                 next_speaker = last_message_directed # get the person who the last message was directed at
                 message_type = MessageType.DIRECT.value
@@ -158,7 +163,8 @@ class GroupConvoManager():
                     self.back_and_forth_counter +=1
                 else:
                     self.back_and_forth_counter = 0
-            elif last_message_directed != None and (self.back_and_forth_counter >= config.BACK_AND_FORTH_MAX or interrupt_check <= config.INTERRUPT_PERCENT):
+            elif last_message_directed != 0 and (self.back_and_forth_counter >= config.BACK_AND_FORTH_MAX or \
+                (interrupt_check <= config.INTERRUPT_PERCENT and self.back_and_forth_counter >= 3)):
                 # Interrupt a back and forth exchange 
                 event_id = self.event_checker()
                 if event_id != 0:
@@ -169,7 +175,7 @@ class GroupConvoManager():
                 filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
                 self.back_and_forth_counter = 0
-            elif last_message_directed == None: # last message was not directed at anyone
+            elif last_message_directed == 0: # last message was not directed at anyone
                 # Choose anyone apart from last speaker AND second to last speaker (as more than 2 people in group)
                 filtered_members = [item for item in group_members if item != last_speaker and item != second_last_speaker]
                 next_speaker = random.choice(filtered_members)
@@ -193,7 +199,7 @@ class GroupConvoManager():
                         message_type = MessageType.OPEN.value
                 self.back_and_forth_counter = 0
             else:
-                print("ERROR! In unexpected part of if/else statement.")
+                self.logger.error("ERROR! In unexpected part of if/else statement.")
 
         # Check if the question_id is for a person who is still in the group...
         # If not, then switch the question_id to current speaker

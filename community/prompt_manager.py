@@ -2,6 +2,8 @@ from community.message_type import MessageType
 import yaml, os, random
 from ament_index_python.packages import get_package_share_directory
 import community.configuration as config
+import rclpy
+import rclpy.logging
 
 from community.helper_functions import HelperFunctions
 
@@ -69,6 +71,8 @@ class PromptManager():
 
         self.helper = HelperFunctions()
 
+        self.logger = rclpy.logging.get_logger(f"PromptManager{person_id}_logger")
+
     def get_event_description_by_id(self, event_id):
         """ Function to get an event's description by ID. """
         event = self.helper.events_data.get(event_id)  # Ensure ID is treated as a string
@@ -129,6 +133,7 @@ class PromptManager():
             if not question_person:
                 raise LookupError(f"person not found! {question_id}")
             current_question = question_person.get('question')
+            question_detail = question_person.get('question_detail')
             question_category = question_person.get('question_category')
 
         # Get the response details for the question category, for this person who is speaking
@@ -150,32 +155,31 @@ class PromptManager():
             if question_id == self.person_id: # if the question being discussed matches the person speaking
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"You should announce that your question is: {current_question} \
-                        Politely ask everyone to talk about this instead of whatever else they were talking about. "
+                        prompt_details = f"You should announce that your question is: {current_question} {question_detail} \
+                        Politely ask everyone to talk about this instead of whatever else they were talking about.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
+                            prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':   
-                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        Sadly there is noone here to talk about it with.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                 else:
                     prompt_details = "You are desparate for answers to your question. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Express great appreciation for the incredible help others are giving you. "
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            prompt_details += f"The last person to speak just said this: '{last_message}'.\
                             Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 Do not disagree with anything, and seek to make others feel better about themselves. "
                 if last_message != "":
-                    prompt_details += f"The last person to speak just said: {last_message}. \
+                    prompt_details += f"The last person to speak just said: '{last_message}'. \
                     Repond to this in a sympathetic manner."
                 if MessageType(message_type).name == 'INTERRUPT': 
                     # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
@@ -186,60 +190,58 @@ class PromptManager():
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} \
-                        You would like everyone to help you with this instead of any other person's question."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        You would like everyone to help you with this instead of any other person's question.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
+                            prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        Sadly there is noone here to talk about it with.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Engage critically with the advice others are giving you relating to your question. "
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            prompt_details += f"The last person to speak just said this: '{last_message}'.\
                             Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 The question category is: {question_category}.\
                 {response_category_description} The reason for this is: {response_description}. "
                 if last_message != "":
-                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
+                    prompt_details += f"The last person to speak just said: '{last_message}'. Bear this in mind in your reply."
             
         elif question_phase == 3: # Anger towards questions that elicit difficut emotions
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} \
-                        People need to help you with this rather than discussing anything else."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        People need to help you with this rather than discussing anything else.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
+                            prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        Sadly there is noone here to talk about it with.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Others are being quite unhelpful; they are not really adequately answering your question. "
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            prompt_details += f"The last person to speak just said this: '{last_message}'.\
                             Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 The question category is: {question_category}. \
@@ -247,56 +249,49 @@ class PromptManager():
                 if response_category in self.difficult_categories:
                     prompt_details += "React negatively!  You dislike difficult emotions and this person is making you feel them... "
                 if last_message != "":
-                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
+                    prompt_details += f"The last person to speak just said: '{last_message}'. Bear this in mind in your reply."
             
         elif question_phase == 4: # Full anger towards everyone else.
 
             if question_id == self.person_id:
                 if mention_question == True or MessageType(message_type).name == 'SWITCH':
                     if MessageType(message_type).name != 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} \
-                        This is the only thing you care about and people need to help you!"
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        This is the only thing you care about and people need to help you!\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message} (you can refer to this)."
+                            prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
-                        prompt_details = f"Announce that your question is: {current_question} Sadly there is noone here to talk about it with."
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
+                        prompt_details = f"Announce that your question is: {current_question} {question_detail}\
+                        Sadly there is noone here to talk about it with.\
+                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details += "Others are not being helpful at all; they are not answering your desparate question! \
                         They are useless. "
                         if last_message != "":
-                            prompt_details += f"The last person to speak just said this: {last_message}.\
+                            prompt_details += f"The last person to speak just said this: '{last_message}'.\
                             Respond with this in mind."
                     elif MessageType(message_type).name == 'ALONE':
                         # Talk about feeling alone
                         alone_response = person.get('alone_response')
                         prompt_details += f"You are the only one in the group. {alone_response}"
-                        if last_speaker_id != self.person_id and last_message != "":
-                            prompt_details += f"The last person, who just left, said this: {last_message} - you can refer to this in your reply."
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
                 You don't care about this question and don't want to talk about it! \
                 It doesn't matter to you.  You only care about your own question, you don't want to help others with theirs. "
                 if last_message != "":
-                    prompt_details += f"The last person to speak just said: {last_message}. Bear this in mind in your reply."
+                    prompt_details += f"The last person to speak just said: '{last_message}'. Bear this in mind in your reply."
 
         elif question_phase == 5: # Chaos, talking over one another
 
-            prompt_details = f"Shout about your own question: {current_question} (alude to your question rather than stating it explicitly). \
-                You don't care about anyone else or any other question. \
-                You are desperate to find the answer to your own question, but no one will listen and no one seem to care. \
-                You are distraught. "
-
-        # if MessageType(message_type).name == 'JOINING':
-        #     # Say hello
-        #     prompt_details += "You have just joined the group.  Say hello in a few words."
-        # elif MessageType(message_type).name == 'LEAVING':
-        #     # Respond to previous thing and say bye.
-        #     prompt_details += "You are leaving the group.  Respond breifly to the current \
-        #         conversation topic and then say goodbye in a few words."
+            prompt_details = f"Shout about your own question: {current_question} (alude to your question rather than stating it explicitly).\
+            {question_detail}\
+            You don't care about anyone else or any other question. \
+            You are desperate to find the answer to your own question, but no one will listen and no one seem to care. \
+            You are distraught.\
+            Your response should be longer than the standard 30 words, to include some of the question_detail in it."
 
         if MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.
@@ -306,13 +301,8 @@ class PromptManager():
             # Get name of person the message is directed at using directed_id
             directed_name = self.get_name_by_id(directed_id)
             prompt_details += f"This response will be directed at {directed_name}; say their first name in your response."
-            # Check if state of the relationship has changed and comment on that
-            # if state_changed == True:
-            #     prompt_details += f"The state of your relationship with this person has just changed from {from_state} to {to_state}."
-            #     if transition_description != 'None':
-            #         prompt_details += f"Say something like: {transition_description}."
-            # if action != 'None':
-            #     prompt_details += f"Say something like: {action}"
+        elif MessageType(message_type).name != 'DIRECT' or directed_id == 0:
+            prompt_details += f"Do NOT say anyone's name in your response."
 
         elif MessageType(message_type).name == 'EVENT':
             # Use event_id to get event description and urgency and discuss it.  
@@ -328,6 +318,6 @@ class PromptManager():
             if event_urgency_description != None:
                 prompt_details += event_urgency_description
             else:
-                print("Error! event_urgency_description not found.")
+                self.logger.error("Error! event_urgency_description not found.")
 
         return prompt_details

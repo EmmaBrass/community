@@ -30,6 +30,17 @@ GROUP_PI_ASSIGNMENTS = {
 #     {'group_id': 4, 'pi_ids': [7,8,9,10,11]}
 # ]
 
+# List of ID numbers of the people we will initialise LLM clients for.
+# (These people must be defined in the people.yaml file)
+PEOPLE_TO_USE = [
+    138168103177,
+    106170103177,
+    25023320963,
+    12213083177,
+    59837161,
+    4251101621818144,
+    ]
+
 # Whether or not to include relationships
 RELATIONSHIPS = False
 
@@ -46,7 +57,7 @@ INTERRUPT_PERCENT = 30
 DIRECT_PERCENT = 20
 
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just an open comment
-SWITCH_PERCENT = 35
+SWITCH_PERCENT = 30
 
 # How many pieces of text should be in speak list PLUS text requests not yet responded to, 
 # so that we don't needlessly over-query the LLM clients

@@ -3,6 +3,8 @@ from openai import OpenAI
 import json, yaml, os, re, time, requests
 from datetime import datetime
 import community.configuration as config
+import rclpy
+import rclpy.logging
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -27,22 +29,18 @@ class PersonLLM():
         gender: str,
         age: int, 
         question: str,
-        history: str,
-        relationships: dict,
-        personality: str
+        question_detail: str
     ):
         self.name = name
         self.age = age
         self.gender = gender
         self.question = question
-        self.history = history # Where they come from, their job, what they like and dislike.
-        self.relationships = relationships # TODO relationships should be UPDATED when a person leaves a group, based on the convo that just happened.
+        self.question_detail = question_detail
         # This means new relationships can be formed if a new person was in the group.  Maybe also a .txt file ?
         # Relationship object for each relationship!
         # Will need relationship objects to exist seperately somewhere... one object shared between two other objects and both
         # should be able to access and update it!
         # maybe these should be nodes?  relationship nodes?
-        self.personality = personality
         self.interactions = [] # create interactions list
         self.initialise_gpt()
         self.datetime_format = "%Y-%m-%d_%H-%M-%S"
@@ -51,6 +49,8 @@ class PersonLLM():
         package_share_dir = get_package_share_directory('community')
         people_path = os.path.join(package_share_dir, 'config_files', 'people.yaml')
         self.people_data = self.load_people(people_path)
+
+        self.logger = rclpy.logging.get_logger(f"PersonLLM_{person_id}_logger")
 
     def load_people(self, file_path):
         """ Load people data from the YAML file. """
@@ -63,45 +63,30 @@ class PersonLLM():
         Create the GPT instance and feed it the intro_instructions and
         initial data and history for the person.
         """
-        intro_instructions = f"You embody a human. \
-            You will assigned a group, in which you will \
-            be placed with 1 to 5 other people.  You will all have a conversation.\
-            Your main aim is to answer your QUESTION. \
-            Your question right now is: {self.question}. \
-            You will be given a command and then some more explanatory text. \n\
-            Here are all the possible commands:\n\
-            <QUESTION> You are given a new question that you are trying to answer. \n\
-            <NEW GROUP> You have joined a new group and are told who else is in your current group.\n\
-            <TEXT> Another member of your group is speaking. You will be given their name, and \
-            the text for what they say.\n\
-            <MEMBER LEFT> You will be given the name of the person who has left the group.\n\
-            <MEMBER JOINED> You will be given the name of the person who has joined the group.\n\
-            <RESPOND> It's your turn to speak.  You will be given specific instructions on \
-            what sort of thing you should say. \n\
-            When a user message command is given, you should \
-            only response with NONE, unless the command is <RESPOND>. \n\
-            If the command is <NEW GROUP>, respond with NONE. \n\
-            If the command is <TEXT>, respond with NONE. \n\
-            If the command is <MEMBER LEFT>, respond with NONE. \n\
-            If the command is <MEMBER JOINED>, respond with NONE. \n\
-            This is very important.\n\
-            If the command is <RESPOND>, you say something. \n\
-            Your response should be different every time.\n\
-            Use no more than about 30 words in a response.\n\
-            Before we start, here is some information about yourself.  \
-            Your name is {self.name} and you are a {self.gender} and {self.age} years old. \
-            When you talk about something, sound like a real person who is maybe \
-            a little world weary. \n\
-            Here is a brief description of your life and imporant things that \
-            have happened to you: {self.history}."
+        intro_instructions = f"""You embody a human.
+            You will assigned a group, in which you will
+            be placed with 1 to 5 other people.  You will all have a conversation.
+            Your main aim in life is to find an answer to your question.
+            Your question right now is: {self.question}.
+            {self.question_detail}
+            You also help others to answer their questions.
+            You will be given a prompt that explains what the previous person to talk has just said,
+            and then tell you how to react and what to incorporate into your response.
+            Your response should be different every time.
+            Use no more than about 30 words in a response.
+            Before we start, here is some information about yourself.
+            Your name is {self.name} and you are a {self.gender} and {self.age} years old.
+            When you talk about something, sound like a real person who is maybe
+            a little world weary."""
+        
             # And here is a description of your relationships with people who you \
             # already know: {self.relationships}\n\
             # These relationships are important.  You should let your pre-existing relationship \
             # with a person largely guide how you interact with them if you are both in the same group \
             # TODO need a way to integrate pre-existing relationship with evolving relationships 
             # (bascially like a csv to initialise relationships in more advanced states.)
-            # conversation." #TODO try with and without reminder of past interactions w/ group members
-            # TODO make these (apart from <RESPOND>) into function calls???
+            # conversation. #TODO try with and without reminder of past interactions w/ group members
+
         self.api_key = "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"
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", self.api_key))
         self.create_assistant(intro_instructions)
@@ -118,7 +103,6 @@ class PersonLLM():
         self, 
         person_id: int, 
         group_id: int, 
-        people_in_group: list, # Members of the group EXCLUDING this person.
         prompt_details: str
     ):
         """
@@ -135,9 +119,9 @@ class PersonLLM():
         :returns reponse: The text response
         :returns gpt_message_id: The ID number of the GPT message reponse
         """
-        response, gpt_message_id = self.add_user_message_and_get_response(f"<RESPOND> {prompt_details}")
+        response, gpt_message_id = self.add_user_message_and_get_response(prompt_details)
         # Save the text to the interactions memory dict
-        self.update_interactions_dict(person_id, group_id, people_in_group, response)
+        self.update_interactions_dict(person_id, group_id, [], response)
         return response, gpt_message_id
 
     def member_joined_group(self, person_id: int):
@@ -150,8 +134,8 @@ class PersonLLM():
         name = self.get_name_from_person_id(person_id)
         response, message_id = self.add_user_message_and_get_response(f"<MEMBER JOINED> {name} has joined the group.")
         if response != "NONE":
-            print("Error! GPT not returning NONE for <MEMBER JOINED> command.")
-            print(response)
+            self.logger.error("Error! GPT not returning NONE for <MEMBER JOINED> command.")
+            self.logger.info(response)
         else:
             return response
 
@@ -165,8 +149,8 @@ class PersonLLM():
         name = self.get_name_from_person_id(person_id)
         response, message_id = self.add_user_message_and_get_response(f"<MEMBER LEFT> {name} has left the group.")
         if response != "NONE":
-            print("Error! GPT not returning NONE for <MEMBER LEFT> command.")
-            print(response)
+            self.logger.error("Error! GPT not returning NONE for <MEMBER LEFT> command.")
+            self.logger.info(response)
         else:
             return response
         
@@ -188,8 +172,8 @@ class PersonLLM():
         response, message_id = self.add_user_message_and_get_response(f"<NEW GROUP> You have been moved to group {group_id}, \
         the other members of the group are: {other_members_names}")
         if response != "NONE":
-            print("Error! GPT not returning NONE for <NEW GROUP> command.")
-            print(response)
+            self.logger.error("Error! GPT not returning NONE for <NEW GROUP> command.")
+            self.logger.info(response)
         else:
             return response
 
@@ -217,8 +201,8 @@ class PersonLLM():
         name = self.get_name_from_person_id(person_id)
         response, message_id = self.add_user_message_and_get_response(f"<TEXT> {name} says this: {text}")
         if response != "NONE":
-            print("Error! GPT not returning NONE for <TEXT> command.")
-            print(response)
+            self.logger.error("Error! GPT not returning NONE for <TEXT> command.")
+            self.logger.info(response)
         # Save the text to the interactions memory dict
         self.update_interactions_dict(person_id, group_id, people_in_group, text)
 
@@ -246,7 +230,7 @@ class PersonLLM():
         person_data = self.people_data.get(person_id, {})
         name = person_data.get('name', None),
         if name == None:
-            print("Error! Name not found for this person_id")
+            self.logger.error("Error! Name not found for this person_id")
         return name
 
     ########## GPT METHODS ##########
@@ -279,7 +263,7 @@ class PersonLLM():
         """
         user_message = self.add_user_message(self.thread, message)
         completed = self.run(self.thread, self.assistant)
-        print(f"completed {completed}")
+        self.logger.info(f"GPT inference completed: {completed}")
         if completed == True:
             response = self.get_response(self.thread, user_message)
             # Convert response to a string
@@ -296,7 +280,7 @@ class PersonLLM():
                 first_value = extracted_values[0]
             #print("First Extracted Value:", first_value)
             else:
-                print("No value found in the response.")
+                self.logger.warn("No value found in the response.")
             # Define a regular expression pattern to find the id
             pattern = r'id=(?:"([^"]*)"|\'([^\']*)\')'
             # Search for the pattern in the response string
@@ -308,20 +292,20 @@ class PersonLLM():
                 first_id = extracted_values[0]
                # print("First Extracted ID:", first_id)
             else:
-                print("No value found in the response.")
+                self.logger.warn("No value found in the response.")
             return first_value, first_id
         else:
-            print("GPT run error!")
+            self.logger.error("GPT run error!")
 
     def show_json(self, obj):
-        print(json.loads(obj.model_dump_json()))
+        self.logger.info(json.loads(obj.model_dump_json()))
 
     def pretty_print(self, messages: list):
-        print("# Messages")
+        self.logger.info("# Messages")
         for m in messages:
-            print(m.content)
-            print(f"{m.role}: {m.content[0].text.value}")
-        print()
+            self.logger.info(m.content)
+            self.logger.info(f"{m.role}: {m.content[0].text.value}")
+        self.logger.info()
 
     def add_user_message(self, thread, message: str):
         message = self.client.beta.threads.messages.create(
@@ -401,9 +385,9 @@ class PersonLLM():
         if response.status_code == 200:
             json_response = response.json()
             if json_response.get('deleted', False):
-                print(f"Message {message_id} deleted successfully.")
+                self.logger.info(f"Message {message_id} deleted successfully.")
             else:
-                print(f"Message {message_id} not marked as deleted in the response.")
+                self.logger.warn(f"Message {message_id} not marked as deleted in the response.")
         else:
-            print(f"Failed to delete message {message_id}. Status code: {response.status_code}, Response: {response.text}")
+            self.logger.error(f"Failed to delete message {message_id}. Status code: {response.status_code}, Response: {response.text}")
 
