@@ -59,11 +59,11 @@ class GroupAssignmentNode(Node):
         self.hello_list = ['Hello there! What a nice day it is. I am ', 
                            'Hello good people of the world. My name is ', 
                            'Hey, glad to be here with you. My name is ', 
-                           'Hey, it is nice to be here, I would not want to be anywhere else. I am ', 
-                           'Hello there. It is great to be here with you! My name is ', 
-                           'Hi, looking forward to talking to you about interesting things. I am called ',
-                           'Howdy folks, I am so excited to have joined this group. My name is ', 
-                           'I am so happy to be here in this group, I cannot wait. I am '
+                           'Hey, it is nice to be here, I am ', 
+                           'Hello, it is great to be here with you! I am ', 
+                           'Hi, looking forward to talking to you about interesting things. I am ',
+                           'Howdy folks, I am so excited to have joined this group. I am ', 
+                           'I am so happy to be here in this group, I cannot wait. My name is '
                            ]
         
         # Create callback groups
@@ -176,20 +176,20 @@ class GroupAssignmentNode(Node):
                 # Check if the current member has the specified pi_id
                 if member['pi_id'] == msg.pi_id:
                     if member['person_id'] != msg.person_id: # TODO needs to still work if pi restarted!
-                        if msg.person_id not in PEOPLE_TO_USE:
-                            self.get_logger().error("RFID is not in list of people to use!")
-                            return False
                         member['person_id'] = msg.person_id
                         self.get_logger().info("new_person_id")
                         self.get_logger().info(str(msg.person_id))
                         if msg.person_id != 0:
+                            if msg.person_id not in PEOPLE_TO_USE:
+                                self.get_logger().error(f"RFID is not in list of people to use! {msg.person_id}")
+                                return False
                             voice_id = self.helper.get_voice_id(msg.person_id)
                             color = self.helper.get_color(msg.person_id)
                             name = self.helper.get_name(msg.person_id)
                             # Convert text to .wav audio file bytes.
                             text = random.choice(self.hello_list) + str(name)
                             self.get_logger().info(f"Text-to-speech input: text={text}, voice_id={voice_id}")
-                            audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello")
+                            audio_uint8 = self.helper.text_to_speech_bytes(text, voice_id, "hello", volume=1.0)
                             if not all(isinstance(b, int) and 0 <= b <= 255 for b in audio_uint8):
                                 self.get_logger().error(f"Invalid audio data: {audio_uint8}")
                             # Use PiSpeechRequest client so that the person can say hello

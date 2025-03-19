@@ -1,7 +1,8 @@
 import time, os, yaml, wave
 from ament_index_python.packages import get_package_share_directory
-
+import numpy as np
 from piper.voice import PiperVoice
+from pydub import AudioSegment
 
 # Class of helper functions, for getting data from yaml config files, speech to bites, question phase etc.
 # Timer starts on object creation.
@@ -41,15 +42,20 @@ class HelperFunctions():
             data = yaml.safe_load(file)
         return data['people']
 
-    def text_to_speech_bytes(self, text, voice_id, id):
+    def text_to_speech_bytes(self, text, voice_id, id, volume=1.0):
         """
         Convert some speech into .wav bytes for sending.
 
         :param text: The text to convert.
         :param voice_id: The voice_id to send.
         :param id: The group id or the person id, as a unique identifier for the file name (string or int).
+        :param volume: Volume scaling factor (1.0 = full volume, 0.5 = 50%, 0.1 = 10%, etc.)
         """
         try:
+             # Ensure volume is within [0, 1] range
+            volume = max(0, min(volume, 1))
+            volume_db = 20 * np.log10(volume) if volume > 0 else -100  # Avoids log(0) issue
+
             voicedir = os.path.expanduser('~/Documents/piper/')  # Model directory
             model = voicedir + voice_id
             voice = PiperVoice.load(model)
@@ -67,6 +73,15 @@ class HelperFunctions():
                 
                 # Synthesize text and write audio frames
                 voice.synthesize(text, wav)
+
+            # Apply volume adjustment
+            audio = AudioSegment.from_wav(wav_file)
+            adjusted_audio = audio.apply_gain(volume_db)  # Scale volume
+
+            # Export modified WAV file (overwrites original)
+            adjusted_audio.export(wav_file, format="wav")
+
+            print(f"Generated speech with volume {volume * 100}%")
 
             # Convert audio to bytes
             with open(wav_file, 'rb') as f:

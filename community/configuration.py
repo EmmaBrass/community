@@ -22,7 +22,8 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1,2,3,4,5]}
+    1 : {'pi_ids': [1,2]},
+    2 : {'pi_ids': [3,4,5]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
@@ -33,13 +34,20 @@ GROUP_PI_ASSIGNMENTS = {
 # List of ID numbers of the people we will initialise LLM clients for.
 # (These people must be defined in the people.yaml file)
 PEOPLE_TO_USE = [
-    138168103177,
-    106170103177,
-    25023320963,
-    12213083177,
-    59837161,
-    4251101621818144,
+    10681103177, # Foxy Mug
+    1659737161, # Ink Well
+    15481103177, # Coffee Jar
+    17018381177 # Hot-chocolate Powder
     ]
+
+
+    # 138168103177,
+    # 106170103177,
+    # 25023320963,
+    # 12213083177,
+    # 59837161,
+    # 4251101621818144,
+    # ]
 
 # Whether or not to include relationships
 RELATIONSHIPS = False
@@ -48,13 +56,13 @@ RELATIONSHIPS = False
 EVENTS = False
 
 # Max number of back and forth exchanges between just two people before someone else is asked to speak.
-BACK_AND_FORTH_MAX = 4
+BACK_AND_FORTH_MAX = 3
 
 # Probability that a back and forth exchange get interrupted before BACK_AND_FORTH_MAX
-INTERRUPT_PERCENT = 30
+INTERRUPT_PERCENT = 40
 
 # How often (as a percentage of the time) a person directs a message at someone else precise, rather than just an open comment
-DIRECT_PERCENT = 20
+DIRECT_PERCENT = 12
 
 # How often (as a percentage of the time) a person switches to asking their own question, rather than just an open comment
 SWITCH_PERCENT = 30

@@ -157,13 +157,13 @@ class PromptManager():
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details = f"You should announce that your question is: {current_question} {question_detail} \
                         Politely ask everyone to talk about this instead of whatever else they were talking about.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                         if last_message != "":
                             prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':   
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         Sadly there is noone here to talk about it with.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                 else:
                     prompt_details = "You are desparate for answers to your question. "
                     if MessageType(message_type).name != 'ALONE':
@@ -192,13 +192,13 @@ class PromptManager():
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         You would like everyone to help you with this instead of any other person's question.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                         if last_message != "":
                             prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         Sadly there is noone here to talk about it with.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                 else:
                     prompt_details = "You ask still searching for answers, but only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
@@ -212,8 +212,10 @@ class PromptManager():
                         prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
-                The question category is: {question_category}.\
-                {response_category_description} The reason for this is: {response_description}. "
+                The question category is: {question_category}"
+                ran_num = random.randint(0,100)
+                if ran_num < 40:
+                    prompt_details += f"{response_category_description} The reason for this is: {response_description}. "
                 if last_message != "":
                     prompt_details += f"The last person to speak just said: '{last_message}'. Bear this in mind in your reply."
             
@@ -224,13 +226,13 @@ class PromptManager():
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         People need to help you with this rather than discussing anything else.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                         if last_message != "":
                             prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         Sadly there is noone here to talk about it with.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly. "
                     if MessageType(message_type).name != 'ALONE':
@@ -244,8 +246,10 @@ class PromptManager():
                         prompt_details += f"You are the only one in the group. {alone_response}"
             else:
                 prompt_details = f"The current question being discussed is: {current_question} \
-                The question category is: {question_category}. \
-                {response_category_description}  The reason for this is: {response_description}. "
+                The question category is: {question_category}."
+                ran_num = random.randint(0,100)
+                if ran_num < 40:
+                    prompt_details += f"{response_category_description} The reason for this is: {response_description}. "
                 if response_category in self.difficult_categories:
                     prompt_details += "React negatively!  You dislike difficult emotions and this person is making you feel them... "
                 if last_message != "":
@@ -258,13 +262,13 @@ class PromptManager():
                     if MessageType(message_type).name != 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         This is the only thing you care about and people need to help you!\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                         if last_message != "":
                             prompt_details += f"The last person to speak just said this: '{last_message}' (you can refer to this)."
                     elif MessageType(message_type).name == 'ALONE':
                         prompt_details = f"Announce that your question is: {current_question} {question_detail}\
                         Sadly there is noone here to talk about it with.\
-                        Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+                        Your response should include some (but not all) of the question_detail in it."
                 else:
                     prompt_details = "Only alude to your question rather than stating it explicitly.  Nothing and noone has provided a good answer. "
                     if MessageType(message_type).name != 'ALONE':
@@ -291,7 +295,7 @@ class PromptManager():
             You don't care about anyone else or any other question. \
             You are desperate to find the answer to your own question, but no one will listen and no one seem to care. \
             You are distraught.\
-            Your response should be longer than the standard 30 words, to include some of the question_detail in it."
+            Your response should include some (but not all) of the question_detail in it."
 
         if MessageType(message_type).name == 'INTERRUPT': 
             # Interrupt previous back and forth; comment on what has been said rather than introducing a new topic.

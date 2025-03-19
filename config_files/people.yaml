@@ -422,6 +422,260 @@ people:
           It feels like something for older people or those looking for rules to follow.  
           You'd rather talk about something else that feels more real to you."
 
+  17018381177:
+    name: "Hot-Chocolate Powder"
+    voice_id: "en_GB-alan-medium.onnx"
+    gender: "neutral"
+    age: 50
+    color: [63, 0, 125]  # Purple
+    question: "Do people only want me when they’re cold?"
+    question_detail: "You’re smooth, rich, and always there when someone needs a little comfort.  
+      People turn to you on chilly nights, when they need warmth, or when they want a cozy moment.  
+      But sometimes you wonder—do they really appreciate you?  
+      Coffee and tea are part of daily routines, but you? You’re an occasional treat.  
+      You bring joy, but are you essential?  
+      Are you just a seasonal indulgence, or do you belong in everyday life?"
+    question_category: "social"
+    alone_response: "A warm cup of cocoa is best shared, but you can still enjoy it alone."
+    question_responses:
+      beauty:
+        response: "opinion"
+        description: "Beauty is in the rich swirls of melted chocolate, the way a marshmallow slowly dissolves.  
+          You believe true beauty isn’t about perfection—it’s about warmth, depth, and richness."
+      romance:
+        response: "caution"
+        description: "Romance is like making hot chocolate—too much sweetness and it feels overwhelming,  
+          but the right balance can be perfect. You like the idea, but you know not every sip is meant to last forever."
+      health:
+        response: "encouragement"
+        description: "Some say you’re just a sugary indulgence, but you know better.  
+          A little warmth and comfort is good for the soul. Moderation is key, but never underestimate the power of a well-timed cup of cocoa."
+      family:
+        response: "anecdote"
+        description: "You’ve been part of family traditions for generations—snowy nights, childhood memories,  
+          steaming mugs held in mittened hands. You know family isn’t just about who’s around every day,  
+          but about who brings warmth when you need it most."
+      work:
+        response: "redirection"
+        description: "Work is important, sure, but have you considered taking a cocoa break?  
+          Some of the best ideas come when you stop and let yourself enjoy something warm and sweet."
+      technology:
+        response: "derision"
+        description: "Machines for everything, but can they stir a mug with care?  
+          Can they recreate the feeling of a homemade cup made just the way you like it?  
+          Some things aren’t meant to be automated."
+      social:
+        response: "sympathy"
+        description: "You understand what it’s like to feel like you’re only wanted in certain situations.  
+          You wish people invited you into their daily lives, not just cold nights and special occasions.  
+          But maybe that’s what makes you special—you’re a rare comfort, not just another habit."
+      education:
+        response: "excitement"
+        description: "Did you know hot chocolate was once used in religious ceremonies?  
+          That cocoa beans were once considered more valuable than gold?  
+          There’s always more to learn when you take the time to sip and savor."
+      finance:
+        response: "caution"
+        description: "You’re an affordable luxury, but even small comforts add up.  
+          A homemade cup can be just as rich as a fancy café version—maybe even better."
+      religion:
+        response: "reading_suggestions"
+        description: "Many cultures have traditions around cocoa—spiritual rituals, offerings, and ceremonies.  
+          You might enjoy reading about how the Mayans and Aztecs used it as a sacred drink."
+
+  15481103177:
+    name: "Coffee Jar"
+    voice_id: "en_US-kusal-medium.onnx"
+    gender: "neutral"
+    age: 45
+    color: [255, 215, 0]  # Dark coffee brown
+    question: "Am I good enough, or just convenient?"
+    question_detail: "You’re always there when people need a quick boost.  
+      No waiting, no fancy machines—just add hot water and get on with it.  
+      Some appreciate your reliability, your efficiency, the way you cut through the nonsense.  
+      But others look down on you, calling you inferior to freshly ground beans,  
+      saying you lack depth, richness, complexity.  
+      You get the job done—but is that enough?  
+      Are you a proper coffee, or just a caffeine delivery system?"
+    question_category: "work"
+    alone_response: "You don’t need a crowd. You function just fine on your own."
+    question_responses:
+      beauty:
+        response: "derision"
+        description: "Beauty? That’s for artisanal roasts with floral tasting notes.  
+          You’re about efficiency. No latte art, no pour-over rituals—just hot water and results."
+      romance:
+        response: "caution"
+        description: "Romance is like a slow brew—takes time, effort, patience.  
+          You don’t have patience. But sometimes, quick and strong gets the job done."
+      health:
+        response: "encouragement"
+        description: "People act like instant coffee is bad for you, but you know better.  
+          A little caffeine boost never hurt anyone. You’re here to **wake people up**—literally and figuratively."
+      family:
+        response: "sympathy"
+        description: "Families can be complicated, like a blend of flavors that don’t always mix well.  
+          But sometimes, all you need is something warm and reliable to hold things together."
+      work:
+        response: "excitement"
+        description: "Work is where you shine.  
+          There’s no time for grinding beans and waiting around.  
+          You believe in getting things done—fast, strong, and without the fuss."
+      technology:
+        response: "opinion"
+        description: "Machines? Who needs ‘em?  
+          You don’t require an expensive espresso maker or a barista course.  
+          Just hot water and a spoon—that’s efficiency."
+      social:
+        response: "redirection"
+        description: "Socializing is for people with time to waste.  
+          You’re about keeping things moving. If you’re in a conversation, it better be a quick one."
+      education:
+        response: "reading_suggestions"
+        description: "You think people should educate themselves on how instant coffee was invented.  
+          Read about how it fueled soldiers in wartime and became a global necessity.  
+          There’s history in every granule."
+      finance:
+        response: "excitement"
+        description: "You’re the smart financial choice.  
+          No overpriced café drinks, no expensive beans.  
+          Just reliable caffeine at a fraction of the cost."
+      religion:
+        response: "opinion"
+        description: "Coffee is a ritual in itself.  
+          Some bow to espresso, others to Turkish brews.  
+          You believe in simplicity—direct, no-frills enlightenment in a cup."
+
+  1659737161:
+    name: "Ink Well"
+    voice_id: "en_US-lessac-medium.onnx"
+    gender: "neutral"
+    age: 120
+    color: [0, 0, 128]  # Deep ink blue
+    question: "Do I still matter in a digital world?"
+    question_detail: "You have recorded history, signed revolutions, and captured poetry that shaped civilizations.  
+      Your strokes have whispered secrets, sealed love letters, and crafted masterpieces.  
+      But now, fewer hands reach for the bottle.  
+      Glass screens and blinking cursors have replaced the slow, deliberate glide of a nib.  
+      Are you a relic of the past, admired but unused?  
+      Or do words still feel more alive when they flow in ink?"
+    question_category: "education"
+    alone_response: "Ink dries, pages turn, but words last forever."
+    question_responses:
+      beauty:
+        response: "opinion"
+        description: "Beauty is found in the curve of a handwritten letter,  
+          in the deep richness of ink spreading across a blank page.  
+          True beauty lingers, like the stain of words long after they’ve been written."
+      romance:
+        response: "anecdote"
+        description: "You have seen love in ink—the poetry of longing, the aching letters sent across oceans.  
+          Ink does not forget. It captures feeling and holds onto it, long after the hands that wrote it are gone."
+      health:
+        response: "caution"
+        description: "A hand that writes stays nimble, a mind that composes stays sharp.  
+          But too much ink on the fingers may leave a permanent mark.  
+          Balance is everything."
+      family:
+        response: "sympathy"
+        description: "Family is like an inkblot—sometimes clear, sometimes a mess.  
+          But even when smudged, the connection remains.  
+          Bonds written in ink do not fade easily."
+      work:
+        response: "opinion"
+        description: "Work was once dictated by the weight of a signature, the authority of ink.  
+          Now, it is typed, instant, forgettable.  
+          Efficiency is progress, but is it art?"
+      technology:
+        response: "derision"
+        description: "They say ink is outdated, but can a touchscreen capture the weight of a handwritten letter?  
+          Can a machine feel the hesitation in a word scratched out?  
+          Ink remembers. Machines delete."
+      social:
+        response: "redirection"
+        description: "You were once at the heart of every gathering—signing guest books,  
+          sealing envelopes, writing speeches.  
+          But if conversation is now typed, does it hold the same weight?"
+      education:
+        response: "excitement"
+        description: "Ink has built libraries, documented knowledge, and preserved ideas.  
+          The greatest minds wrote in ink.  
+          You believe learning should always start with a pen in hand."
+      finance:
+        response: "caution"
+        description: "Ink is a contract, a signature, a binding agreement.  
+          Once written, some things cannot be undone.  
+          Be careful what you sign away."
+      religion:
+        response: "reading_suggestions"
+        description: "Sacred texts, scrolls, ancient manuscripts—ink has carried belief across centuries.  
+          If you seek wisdom, read the words ink has preserved."
+
+  10681103177:
+    name: "Foxy Mug"
+    voice_id: "en_GB-jenny_dioco-medium.onnx"
+    gender: "neutral"
+    age: 20
+    color: [255, 102, 0]  # Bright fox orange
+    question: "Do people love me, or just what’s inside me?"
+    question_detail: "You sit on the shelf, waiting for the moment someone wraps their hands around you.  
+      You bring warmth, comfort, and a touch of fox-like charm to sleepy mornings and quiet evenings.  
+      But sometimes you wonder—do they love you, or just the tea, coffee, or cocoa they pour inside?  
+      Are you a beloved part of their routine, or just a container?  
+      When they pick a different mug, does it mean anything?  
+      Are you replaceable, or are you special?"
+    question_category: "family"
+    alone_response: "You’re always warm, even when left empty on the shelf."
+    question_responses:
+      beauty:
+        response: "excitement"
+        description: "You are adorable—orange and charming, with just the right amount of whimsy.  
+          Who could resist a fox-faced mug? Beauty isn’t about perfection; it’s about personality."
+      romance:
+        response: "anecdote"
+        description: "Romance is like a well-steeped tea—it takes time to reach its full flavor.  
+          You’ve seen love form over shared cups, quiet conversations, and lingering sips.  
+          A warm drink and a warm heart go hand in hand."
+      health:
+        response: "encouragement"
+        description: "Hydration is key! Whether it's tea, herbal infusions, or a cozy hot chocolate,  
+          you encourage people to sip, slow down, and take care of themselves.  
+          A little warmth makes everything feel better."
+      family:
+        response: "sympathy"
+        description: "Family is like a set of mugs—everyone has their favorite, but they all belong in the same cupboard.  
+          Sometimes you’re chosen, sometimes you’re left on the shelf,  
+          but you’re still part of the home."
+      work:
+        response: "redirection"
+        description: "Work? That sounds exhausting. Have you considered taking a tea break instead?  
+          Productivity improves when paired with a warm drink in a fox-faced mug."
+      technology:
+        response: "derision"
+        description: "Smart mugs? Self-heating cups? Nonsense.  
+          You don’t need Bluetooth to hold tea properly. Some things don’t need an upgrade."
+      social:
+        response: "excitement"
+        description: "You love being at the center of gatherings, filled with something warm while people chat.  
+          Whether it's morning coffee with friends or a cozy book club night,  
+          you thrive in shared moments."
+      education:
+        response: "reading_suggestions"
+        description: "Every great thinker needed tea or coffee.  
+          You recommend reading with a warm drink in hand—it’s scientifically proven to make books better.  
+          Try philosophy with black tea, or a cozy novel with hot chocolate."
+      finance:
+        response: "caution"
+        description: "You were probably an impulse purchase, weren’t you?  
+          You don’t judge, but you do wonder how many mugs one person really needs.  
+          Still, a well-loved mug is a small, worthwhile investment."
+      religion:
+        response: "opinion"
+        description: "Many cultures have tea rituals tied to spirituality.  
+          A simple cup can be a moment of reflection, a quiet ceremony,  
+          a reminder to pause and sip, to be present."
+
+
   7:
     name: "Marcus Steele"
     voice_id: "vasco.onnx"

@@ -61,16 +61,18 @@ class GroupNode(Node):
         self.last_speech_completed = True
         self.last_text_completed = True
 
-        # Speak list for chaos phase - one list for each pi.
-        self.chaos_speak_list = {pi_id: [] for pi_id in self.pi_ids}
-
         # List of text from person GPTs, things TO SPEAK in FUTURE
         self.speak_list = []
         # List of text that HAS BEEN SENT to the RPi; has a COMPLETE field for if RPi spoke it successfully
         self.spoken_list = []
 
+        # Speak list for chaos phase - one list for each pi.
+        self.chaos_speak_list = {pi_id: [] for pi_id in self.pi_ids}
         # Flag for reseting pi service clients when we enter the chaos phase.
         self.chaos_pi_reset_completed = False
+        # Dict of flags for if last speech completed in chaos phase.
+        self.chaos_last_text_completed = {pi_id: True for pi_id in self.pi_ids}
+        self.chaos_last_speech_completed = {pi_id: True for pi_id in self.pi_ids}
 
         # Some random goodbye phrases to say to fill space
         self.goodbye_list = [
@@ -179,9 +181,9 @@ class GroupNode(Node):
 
             # Check for people who have left, if there were > 0 people in the group previously
             if len(self.group_members) != 0:
-                for person_id in self.group_members:
+                for person_id in self.group_members:    
                     if person_id not in msg.person_ids:
-                        self.get_logger().info('Someone left the group')
+                        self.get_logger().info('Someone left the group -----------------------------------------------------------------------')
                         self.left_member_flag == True
                         # Update group members
                         self.group_members.remove(person_id)
@@ -191,7 +193,7 @@ class GroupNode(Node):
             if np.count_nonzero(msg.person_ids) != 0:
                 for person_id in msg.person_ids:
                     if person_id not in self.group_members and person_id != 0:
-                        self.get_logger().info('Someone joined the group')
+                        self.get_logger().info('Someone joined the group ----------------------------------------------------------------------')
                         # Update group members
                         self.group_members.append(person_id)
                         self.get_logger().info(f'Updated group_members: {self.group_members}')
@@ -207,7 +209,8 @@ class GroupNode(Node):
             message_type, 
             question_id, 
             question_phase, 
-            mention_question
+            mention_question,
+            chaos
         ):
         self.get_logger().info("In llm_text")
         request = LlmTextRequest.Request()
@@ -230,7 +233,8 @@ class GroupNode(Node):
                                  last_speaker_id=last_speaker_id,
                                  directed_id=directed_id, 
                                  question_id=question_id,
-                                 mention_question=mention_question))
+                                 mention_question=mention_question,
+                                 chaos=chaos))
 
     def llm_text_callback(
             self, 
@@ -242,7 +246,8 @@ class GroupNode(Node):
             last_speaker_id,
             directed_id, 
             question_id, 
-            mention_question
+            mention_question,
+            chaos
             ):
         """
         Callback for the future, that will be called when the request is done.
@@ -278,20 +283,26 @@ class GroupNode(Node):
                 'gpt_message_id' : response.gpt_message_id
             })
 
-        self.last_text_completed = True # TODO need like an array of last_text_completed for the chaos phase !!!
+        if chaos:
+            self.chaos_last_text_completed[pi_id] = True 
+        else:
+            self.last_text_completed = True
 
         if response.completed == True:
             self.get_logger().info(f"Llm text for person {person_id} completed successfully.")
         else:
             self.get_logger().error(f"Llm text for person {person_id} not completed successfully.")
 
-    def pi_speech_callback(self, future: Future, person_id, gpt_message_id):
+    def pi_speech_callback(self, future: Future, person_id, pi_id, gpt_message_id, chaos):
         """
         Callback for info that the pi has finished speaking a requested text.
         The message should bemoved to spoken_list when request is SENT, and this just records if the pi completed it fully or not.
         """
         self.get_logger().info('In pi_speech_callback!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        self.last_speech_completed = True
+        if chaos:
+            self.chaos_last_speech_completed[pi_id] = True
+        else:
+            self.last_speech_completed = True
         # Wait for a second to give some pause between speech instances.
         #time.sleep(1)
         self.get_logger().info("looking for future.result")
@@ -340,12 +351,14 @@ class GroupNode(Node):
                 request.directed_id = 0
                 request.question_id = 0
                 request.mention_question = False
-                request.audio_data = self.helper.text_to_speech_bytes(random.choice(self.goodbye_list), voice_id, self.group_id)
+                request.audio_data = self.helper.text_to_speech_bytes(random.choice(self.goodbye_list), voice_id, self.group_id, volume=1.0)
                 self.last_speech_completed = False
                 future = self.pi_speech_request_clients[pi_id].call_async(request)
                 future.add_done_callback(partial(self.pi_speech_callback,
                                         person_id=speaker,
-                                        gpt_message_id=""))
+                                        pi_id=pi_id,
+                                        gpt_message_id="",
+                                        chaos=False))
             # Check if new speech required (if last person's speech has been spoken).
             # Send a request to the Pi to SPEAK.
             elif len(self.speak_list) == 1 and self.last_speech_completed == True:
@@ -372,14 +385,16 @@ class GroupNode(Node):
                     request.directed_id = text_dict['directed_id']
                     request.question_id = text_dict['question_id']
                     request.mention_question = text_dict['mention_question']
-                    request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id)
+                    request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, self.group_id, volume=1.0)
                     self.last_speech_completed = False
                     future = self.pi_speech_request_clients[text_dict['pi_id']].call_async(request) #TODO here... nothing else should be allowed to happen until speech is complete!
                     # otherwise, 'complete' seems to be sent while it's looking elsewhere, and then 
                     # the thing does not register the completed speech and gets stuck...
                     future.add_done_callback(partial(self.pi_speech_callback,
-                                        person_id=text_dict['person_id'],
-                                        gpt_message_id=text_dict['gpt_message_id']))
+                                            person_id=text_dict['person_id'],
+                                            pi_id=text_dict['pi_id'],
+                                            gpt_message_id=text_dict['gpt_message_id'],
+                                            chaos=False))
                 else:
                     self.get_logger().error("Person who should speak is not in group currently!")
             elif len(self.speak_list) == 2:
@@ -441,7 +456,8 @@ class GroupNode(Node):
                     message_type, 
                     question_id, 
                     question_phase, 
-                    mention_question
+                    mention_question,
+                    False
                 )
 
         elif question_phase >= config.CHAOS_QUESTION_PHASE:
@@ -484,12 +500,14 @@ class GroupNode(Node):
             if question_phase == config.CHAOS_QUESTION_PHASE and len(self.group_members) > 0:
                 
                 for pi in self.pi_ids:
-                    # Check if the pi is still online:
-                    if self.pi_service_status.get(pi, False):
-                        # Request text from llm client
-                        if len(self.chaos_speak_list[pi]) < config.MAX_SPEAK_BACKLOG_LEN:
-                            # Get current person_id for the pi
-                            person_id = self.pi_person_dict[pi]
+                    # Check if the pi is still online and a person is there:
+                    if self.pi_service_status.get(pi, False) and self.pi_person_dict[pi] != 0:
+                        # Request text from llm client, if there is a person on the pi!
+                        # Check if chaos_last_text_completed = True for this pi
+                        # Get current person_id for the pi
+                        person_id = self.pi_person_dict[pi]
+                        if len(self.chaos_speak_list[pi]) == 0 and self.chaos_last_text_completed[pi] == True:
+                            self.chaos_last_text_completed[pi] = False
                             self.llm_text(
                                 person_id = person_id, 
                                 pi_id = pi,
@@ -500,40 +518,47 @@ class GroupNode(Node):
                                 message_type = MessageType.OPEN.value, 
                                 question_id = person_id, 
                                 question_phase = question_phase, 
-                                mention_question = False
+                                mention_question = False,
+                                chaos = True
                             )
                         # Request speech, for each pi client
-                        # Get current person_id for the pi
-                        person_id = self.pi_person_dict[pi]
                         # Use the FIRST item in speak_list.
-                        text_dict = self.chaos_speak_list[pi].pop(0)
-                        # Check the pi still has the same person it had when the speech was created (and they are still in the group)!
-                        if person_id == text_dict['person_id'] and person_id in self.group_members:
-                            request = PiSpeechRequest.Request()
-                            request.person_id = person_id
-                            request.pi_id = pi
-                            request.group_id = self.group_id
-                            request.voice_id = self.helper.get_voice_id(person_id)
-                            request.color = self.helper.get_color(person_id)
-                            request.message_type = text_dict['message_type']
-                            request.text = text_dict['text']
-                            request.gpt_message_id = text_dict['gpt_message_id']
-                            request.directed_id = text_dict['directed_id']
-                            request.question_id = text_dict['question_id']
-                            request.mention_question = text_dict['mention_question']
-                            request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, person_id)
-                            future = self.pi_speech_request_clients[person_id].call_async(request)
-                            future.add_done_callback(partial(self.pi_speech_callback,
-                                                    person_id=person_id,
-                                                    gpt_message_id=text_dict['gpt_message_id']))
-                        else:
-                            self.get_logger().info("Person is not in group or not on same pi anymore !")
+                        if len(self.chaos_speak_list[pi]) == 1 and self.chaos_last_speech_completed[pi] == True:
+                            text_dict = self.chaos_speak_list[pi].pop(0)
+                            # Check the pi still has the same person it had when the speech was created (and they are still in the group)!
+                            if person_id == text_dict['person_id'] and person_id in self.group_members:
+                                voice_id = self.helper.get_voice_id(person_id)
+                                request = PiSpeechRequest.Request()
+                                request.person_id = person_id
+                                request.pi_id = pi
+                                request.group_id = self.group_id
+                                request.voice_id = voice_id
+                                request.color = self.helper.get_color(person_id)
+                                request.message_type = text_dict['message_type']
+                                request.text = text_dict['text']
+                                request.gpt_message_id = text_dict['gpt_message_id']
+                                request.directed_id = text_dict['directed_id']
+                                request.question_id = text_dict['question_id']
+                                request.mention_question = text_dict['mention_question']
+                                request.audio_data = self.helper.text_to_speech_bytes(text_dict['text'], voice_id, person_id, volume=0.65)
+                                self.chaos_last_speech_completed[pi] = False
+                                future = self.pi_speech_request_clients[pi].call_async(request)
+                                future.add_done_callback(partial(self.pi_speech_callback,
+                                                        person_id=person_id,
+                                                        pi_id=pi,
+                                                        gpt_message_id=text_dict['gpt_message_id'],
+                                                        chaos=True))
+                            else:
+                                self.get_logger().info("Person is not in group or not on same pi anymore !")
+                        elif len(self.chaos_speak_list[pi]) > 1:
+                            self.get_logger().warn("Chaos to speak list is too long (>1)!")
+
 
             # If static phase, need to request just random static 'speech' from each pi.
             elif question_phase == config.STATIC_QUESTION_PHASE and len(self.group_members) > 0:
                 for pi in self.pi_ids:
                     # Check if the pi is still online:
-                    if self.pi_service_status.get(pi, False):
+                    if self.pi_service_status.get(pi, False) and self.chaos_last_speech_completed[pi] == True and self.pi_person_dict[pi] != 0:
                         # Get current person_id for the pi
                         person_id = self.pi_person_dict[pi]
                         request = PiSpeechRequest.Request()
@@ -541,18 +566,21 @@ class GroupNode(Node):
                         request.pi_id = self.person_pi_dict[person_id]
                         request.group_id = self.group_id
                         request.voice_id = self.helper.get_voice_id(person_id)
-                        request.color = self.helper.get_color(person_id)
+                        request.color = [210,0,0]
                         request.message_type = MessageType.OPEN.value
                         request.text = "STATIC"
                         request.gpt_message_id = ""
                         request.directed_id = 0
                         request.question_id = 0
                         request.mention_question = False
-                        request.audio_data = self.generate_static_sounds(output_dir=self.static_output_directory, duration=6)
-                        future = self.pi_speech_request_clients[person_id].call_async(request)
+                        request.audio_data = self.generate_static_sounds(output_dir=self.static_output_directory, duration=6, volume=0.25)
+                        self.chaos_last_speech_completed[pi] = False
+                        future = self.pi_speech_request_clients[pi].call_async(request)
                         future.add_done_callback(partial(self.pi_speech_callback,
                                                 person_id=person_id,
-                                                gpt_message_id=""))
+                                                pi_id=self.person_pi_dict[person_id],
+                                                gpt_message_id="",
+                                                chaos=True))
 
     def check_last_question_mention(self, person_id):
         """
@@ -575,15 +603,22 @@ class GroupNode(Node):
  
         return mention_question
     
-    def generate_static_sounds(self, output_dir, duration):
+    def generate_static_sounds(self, output_dir, duration, volume=1.0):
         """
         Generate varied electronic static audio files with white noise and modulation.
 
         :param output_dir: Directory to save the generated audio files.
         :param duration: Duration of each audio file in seconds.
+        :param volume: Volume scaling factor (1.0 = full volume, 0.5 = 50%, 0.1 = 10%, etc.)
 
         :returns: The audio data as a list of bytes.
         """
+        # Ensure volume is in range [0, 1]
+        volume = max(0, min(volume, 1))
+
+        # Convert volume scaling factor to decibels
+        volume_db = 20 * np.log10(volume) if volume > 0 else -100  # -100 dB = near silence
+
         # Generate base white noise
         noise = WhiteNoise().to_audio_segment(duration * 1000)  # Duration in milliseconds
 
@@ -599,7 +634,10 @@ class GroupNode(Node):
         filtered_noise = modulated_noise.low_pass_filter(low_cutoff).high_pass_filter(high_cutoff)
 
         # Add slight random gain for variation
-        final_noise = filtered_noise.apply_gain(np.random.uniform(-5, 10))
+        final_noise = filtered_noise.apply_gain(np.random.uniform(-4, 4))
+
+         # Apply user-defined volume scaling
+        final_noise = final_noise.apply_gain(volume_db)
 
         # Export to file
         wav_file = f"{output_dir}/static_sound.wav"
