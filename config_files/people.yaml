@@ -28,7 +28,7 @@
 # nervousness
 
 people:
-  138168103177:
+  4251101621818144:
     name: "Henry Case"
     voice_id: "ar_JO-kareem-medium.onnx"
     gender: "male"
@@ -93,7 +93,7 @@ people:
           You mock the idea of blind faith, preferring the certainty of systems and logic. 
           To you, belief in the divine is just a comforting lie."
 
-  106170103177:
+  138188104177:
     name: "Johannes Fischer"
     voice_id: "en_US-arctic-medium.onnx"
     gender: "male"
@@ -356,7 +356,7 @@ people:
         Money is the only god that you think is worth worshipping.
         Those who turn to religion are weak minded and have a loose grip on reality."
 
-  4251101621818144:
+  2:
     name: "Liam Brooks"
     voice_id: "en_GB-alan-medium.onnx"
     gender: "male"
@@ -809,7 +809,7 @@ people:
           The idea of forgiveness and unconditional love feels both comforting and overwhelming.  
           You want to believe, but it's hard to let go of doubt."
 
-  9:
+  5881103177:
     name: "Evelyn Harper"
     voice_id: "en_US-lessac-medium.onnx"
     gender: "female"

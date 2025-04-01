@@ -68,21 +68,21 @@ phases:
     id: 4
     timestamp:
       hours: 0
-      minutes: 0
-      seconds: 15
+      minutes: 2
+      seconds: 0
 
   5:
     description: "Chaos, talking over one another."
     id: 5
     timestamp:
       hours: 0
-      minutes: 0
-      seconds: 30
+      minutes: 6
+      seconds: 0
 
   6:
     description: "Electronic static sounds only."
     id: 6
     timestamp:
       hours: 0
-      minutes: 1
+      minutes: 8
       seconds: 0

@@ -34,11 +34,14 @@ GROUP_PI_ASSIGNMENTS = {
 # List of ID numbers of the people we will initialise LLM clients for.
 # (These people must be defined in the people.yaml file)
 PEOPLE_TO_USE = [
-    10681103177, # Foxy Mug
-    1659737161, # Ink Well
-    15481103177, # Coffee Jar
-    17018381177 # Hot-chocolate Powder
-    ]
+    #10681103177, # Foxy Mug
+    #1659737161, # Ink Well
+    #15481103177, # Coffee Jar
+    #17018381177 # Hot-chocolate Powder
+    138188104177, # blueandred brain
+    5881103177, # white brain 
+    4251101621818144 # black stick
+]
 
 
     # 138168103177,

@@ -262,6 +262,9 @@ class PersonLLM():
         Submit a message to the GPT and get a response back.
         """
         user_message = self.add_user_message(self.thread, message)
+        # After creating a message
+        if not user_message:
+            self.logger.error("Failed to create user message.")
         completed = self.run(self.thread, self.assistant)
         self.logger.info(f"GPT inference completed: {completed}")
         if completed == True:
@@ -281,6 +284,7 @@ class PersonLLM():
             #print("First Extracted Value:", first_value)
             else:
                 self.logger.warn("No value found in the response.")
+                self.logger.warn(response_str)
             # Define a regular expression pattern to find the id
             pattern = r'id=(?:"([^"]*)"|\'([^\']*)\')'
             # Search for the pattern in the response string
@@ -320,6 +324,7 @@ class PersonLLM():
             thread_id=thread.id,
             assistant_id=assistant.id,
         )
+        self.logger.info(str(run))
         complete = self.wait_on_run(run, thread)
         return complete
 
@@ -330,6 +335,7 @@ class PersonLLM():
                 run_id=run.id,
             )
             time.sleep(0.3)
+        self.logger.info(str(run))
         return True
 
     def get_response(self, thread, user_message):
