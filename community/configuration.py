@@ -37,7 +37,7 @@ GROUP_PI_ASSIGNMENTS = {
 # (These people must be defined in the people.yaml file)
 PEOPLE_TO_USE = [
     #420105177, # Henry Case
-    2618103177, # Johannes fischer
+    #2618103177, # Johannes fischer
     #234171103177, # Jessica Rust
     #26189104177, # Steve Carlecc
     #90106103177, # Liam Brooks
@@ -47,8 +47,8 @@ PEOPLE_TO_USE = [
     218104103177, # Victoria Lang
     9017983177, # Mad Al
     13817103177, # Daniel Carter
-    13815181177 # Laura Bennett
-    #26187104177, # Miriam Holloway
+    13815181177, # Laura Bennett
+    26187104177 # Miriam Holloway
     #4246103177 # Zoe Matthews
 ]
 

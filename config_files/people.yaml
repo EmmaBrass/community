@@ -746,7 +746,7 @@ people:
     voice_id: "en_US-joe-medium.onnx"
     gender: "male"
     age: 35
-    color: [173, 216, 230] # light blue
+    color: [163, 210, 230] # light blue
     question: "Could God be my salvation?"
     question_detail: "You recently overdosed and were hospitalized.  
       Someone from the local church visited you and talked about God, and it got you thinking.  
@@ -880,7 +880,7 @@ people:
     voice_id: "en_GB-jenny_dioco-medium.onnx"
     gender: "female"
     age: 41
-    color: [92, 64, 40] # Brown
+    color: [52, 34, 20] # Brown
     question: "What effect does my power have on my relationships with others?"
     question_detail: "You run a fast-growing technology company with around 150 employees.  
       You remember the early days of camaraderie and excitement when the team felt like a family.  
@@ -946,7 +946,7 @@ people:
     voice_id: "en_US-kusal-medium.onnx"
     gender: "male"
     age: 62
-    color: [255, 165, 0] # orange
+    color: [255, 105, 0] # orange
     question: "Are there nanorobots in our water?"
     question_detail: "You're convinced that recent brain fog is caused by something in the water.  
       You believe the government might have put nanorobots in it to control people.  
@@ -1078,7 +1078,7 @@ people:
     voice_id: "en_GB-aru-medium.onnx"
     gender: "female"
     age: 51
-    color: [40, 200, 20] # green
+    color: [40, 220, 10] # green
     question: "Should I use hormone replacement therapy or deal with this in a natural way?"
     question_detail: "You've started to realize you're going through menopause—hot flashes, mood swings, and restless nights.  
       Part of you is excited for life without the monthly hormonal cycle, but the symptoms are difficult.  
@@ -1146,7 +1146,7 @@ people:
     voice_id: "en_GB-vctk-medium.onnx"
     gender: "female"
     age: 58
-    color: [225, 225, 190] # beige
+    color: [205, 205, 175] # beige
     question: "Should I get Botox?"
     question_detail: "You're aging, and you want to continue feeling beautiful.  
       Botox could smooth out the lines, make you look fresher, and give you confidence.  
