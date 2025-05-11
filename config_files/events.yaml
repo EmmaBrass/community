@@ -52,23 +52,23 @@ phases:
     id: 2
     timestamp:
       hours: 0
-      minutes: 0
-      seconds: 5
+      minutes: 1
+      seconds: 0
 
   3:
     description: "Getting more emotive, anger towards questions that evoke difficult emotions."
     id: 3
     timestamp:
       hours: 0
-      minutes: 0
-      seconds: 10
+      minutes: 3
+      seconds: 0
 
   4:
     description: "Full anger to everyone else."
     id: 4
     timestamp:
       hours: 0
-      minutes: 2
+      minutes: 5
       seconds: 0
 
   5:
@@ -76,7 +76,7 @@ phases:
     id: 5
     timestamp:
       hours: 0
-      minutes: 6
+      minutes: 7
       seconds: 0
 
   6:
@@ -84,5 +84,5 @@ phases:
     id: 6
     timestamp:
       hours: 0
-      minutes: 8
+      minutes: 9
       seconds: 0
