@@ -22,8 +22,10 @@
 NUM_GROUPS = 1
 
 GROUP_PI_ASSIGNMENTS = {
-    1 : {'pi_ids': [1,2]},
-    2 : {'pi_ids': [3,4,5]}
+    1 : {'pi_ids': [12, 3, 8]},
+    2 : {'pi_ids': [5, 7, 10, 1]}
+    # 3 : {'pi_ids': [13,3,4,12,6]},
+    # 4 : {'pi_ids': [11,2,9]}
 }
 
 #     {'group_id': 2, 'pi_ids': [3,4,5]},
@@ -34,14 +36,31 @@ GROUP_PI_ASSIGNMENTS = {
 # List of ID numbers of the people we will initialise LLM clients for.
 # (These people must be defined in the people.yaml file)
 PEOPLE_TO_USE = [
+    #420105177, # Henry Case
+    2618103177, # Johannes fischer
+    #234171103177, # Jessica Rust
+    #26189104177, # Steve Carlecc
+    #90106103177, # Liam Brooks
+    #90171103177, # Marcus Steele
+    186224104177, # Daniel Reid
+    697037161, # Evelyn Harper
+    218104103177, # Victoria Lang
+    9017983177, # Mad Al
+    13817103177, # Daniel Carter
+    13815181177 # Laura Bennett
+    #26187104177, # Miriam Holloway
+    #4246103177 # Zoe Matthews
+]
+
+
     #10681103177, # Foxy Mug
     #1659737161, # Ink Well
     #15481103177, # Coffee Jar
     #17018381177 # Hot-chocolate Powder
-    138188104177, # blueandred brain
-    5881103177, # white brain 
-    4251101621818144 # black stick
-]
+#     138188104177, # blueandred brain
+#     5881103177, # white brain 
+#     4251101621818144 # black stick
+# ]
 
 
     # 138168103177,
