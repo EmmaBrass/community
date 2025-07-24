@@ -87,7 +87,7 @@ class PersonLLM():
             # (bascially like a csv to initialise relationships in more advanced states.)
             # conversation. #TODO try with and without reminder of past interactions w/ group members
 
-        self.api_key = "LLM_KEY_GOES_HERE"
+        self.api_key = "API_KEY_GOES_HERE"
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", self.api_key))
         self.create_assistant(intro_instructions)
         self.create_thread()
